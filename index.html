@@ -29,20 +29,20 @@ nav button:last-child { border-right:none; }
 </header>
 
 <main>
-<!-- パスワードページ -->
+<!-- パスワード画面 -->
 <section id="page-password">
 <input id="passwordInput" type="password" placeholder="パスワードを入力" />
 <button type="button" id="passwordSubmit">ログイン</button>
 <p id="passwordError" style="color:red;display:none">パスワードが違います</p>
 </section>
 
-<!-- ログインページ -->
+<!-- ログイン画面 -->
 <section id="page-login" class="hidden">
 <input id="userIdInput" placeholder="ユーザーIDを入力" />
 <button type="button" id="loginSubmit">ログイン</button>
 </section>
 
-<!-- チェック待ちリストページ -->
+<!-- チェック待ちリスト -->
 <section id="page-checklist" class="hidden">
 <h2 id="checklistTitle">チェック待ちリスト</h2>
 <div style="display:flex;gap:8px;margin-bottom:8px;">
@@ -59,7 +59,7 @@ nav button:last-child { border-right:none; }
 <button type="button" id="resetAllBtn" style="margin-top:8px;">全データをリセット</button>
 </section>
 
-<!-- チェック済みリストページ -->
+<!-- チェック済みリスト -->
 <section id="page-checked" class="hidden">
 <h2 id="checkedTitle">チェック済みリスト</h2>
 <div id="checkedList"></div>
@@ -68,10 +68,8 @@ nav button:last-child { border-right:none; }
 </main>
 
 <nav>
-<button type="button" id="navPassword">🔑</button>
-<button type="button" id="navLogin">👤</button>
-<button type="button" id="navChecklist">📋</button>
-<button type="button" id="navChecked">✅</button>
+<button type="button" id="navChecklist">📋 チェック待ち</button>
+<button type="button" id="navChecked">✅ チェック済み</button>
 </nav>
 
 <script>
@@ -94,12 +92,14 @@ function showPage(id){
   ["page-password","page-login","page-checklist","page-checked"].forEach(p=>document.getElementById(p).classList.add("hidden"));
   document.getElementById(id).classList.remove("hidden");
   currentPage=id;
-  document.getElementById("title").textContent=texts[lang][id.replace("page-","")];
+  if(id!=="page-password" && id!=="page-login") document.getElementById("title").textContent=texts[lang][id.replace("page-","")];
 }
-document.getElementById("navPassword").onclick=()=>showPage("page-password");
-document.getElementById("navLogin").onclick=()=>showPage("page-login");
-document.getElementById("navChecklist").onclick=()=>showPage("page-checklist");
-document.getElementById("navChecked").onclick=()=>showPage("page-checked");
+
+// --- 言語切替 ---
+document.getElementById("langBtn").onclick=()=>{
+  lang=(lang==="ja"?"en":"ja");
+  showPage(currentPage);
+};
 
 // --- パスワード ---
 document.getElementById("passwordSubmit").onclick=()=>{
@@ -114,12 +114,6 @@ document.getElementById("loginSubmit").onclick=()=>{
   if(!id) return alert(lang==="ja"?"IDを入力してください":"Please enter ID");
   localStorage.setItem("indent:user",id);
   showPage("page-checklist");
-};
-
-// --- 言語切替 ---
-document.getElementById("langBtn").onclick=()=>{
-  lang=(lang==="ja"?"en":"ja");
-  showPage(currentPage);
 };
 
 // --- 保存 ---
@@ -190,6 +184,10 @@ document.getElementById("addProductBtn").onclick=()=>{
 document.getElementById("resetChecklistBtn").onclick=()=>{ checklist=[]; saveData(); renderLists(); };
 document.getElementById("resetCheckedBtn").onclick=()=>{ checkedList=[]; saveData(); renderLists(); };
 document.getElementById("resetAllBtn").onclick=()=>{ checklist=[]; checkedList=[]; localStorage.clear(); renderLists(); };
+
+// --- ナビゲーション ---
+document.getElementById("navChecklist").onclick=()=>showPage("page-checklist");
+document.getElementById("navChecked").onclick=()=>showPage("page-checked");
 
 });
 </script>
