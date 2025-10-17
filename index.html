@@ -9,13 +9,16 @@
     header { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; }
     h1 { font-size: 18px; margin: 0; }
     main { padding: 12px; }
-    button, input, select, textarea { font-size: 16px; padding: 8px; border: 1px solid #000; border-radius: 6px; width: 100%; box-sizing: border-box; }
+    button, input { font-size: 16px; padding: 8px; border: 1px solid #000; border-radius: 6px; box-sizing: border-box; }
     button { background: #000; color: #fff; cursor: pointer; }
     nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #000; }
     nav button { flex: 1; border: none; border-right: 1px solid #fff; background: #000; color: #fff; padding: 10px; }
     nav button:last-child { border-right: none; }
     .hidden { display: none; }
-    .list-item { border: 1px solid #000; padding: 8px; margin-bottom: 6px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .list-item { border: 1px solid #000; padding: 6px; margin-bottom: 6px; border-radius: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .list-item input[type="number"] { width: 70px; }
+    .copyBtn { background: #fff; color: #000; border: 1px solid #000; }
+    #cropCanvas { width: 100%; margin-top: 8px; border: 1px solid #000; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
@@ -26,22 +29,22 @@
   </header>
 
   <main>
-    <!-- Password Page -->
+    <!-- パスワード -->
     <section id="page-password">
       <input id="passwordInput" type="password" placeholder="パスワードを入力" />
       <button id="passwordSubmit">ログイン</button>
       <p id="passwordError" style="color:red;display:none">パスワードが違います</p>
     </section>
 
-    <!-- Login Page -->
+    <!-- ログイン -->
     <section id="page-login" class="hidden">
       <input id="userIdInput" placeholder="ユーザーIDを入力" />
       <button id="loginSubmit">ログイン</button>
     </section>
 
-    <!-- Checklist Page -->
+    <!-- チェック待ちリスト -->
     <section id="page-checklist" class="hidden">
-      <h2 id="checklistTitle">チェックリスト</h2>
+      <h2>チェック待ちリスト</h2>
       <div style="display:flex;gap:8px;margin-bottom:8px;">
         <input id="productCodeInput" placeholder="7桁のコード" />
         <input id="productQtyInput" type="number" min="1" value="1" />
@@ -50,14 +53,14 @@
       <div style="margin-bottom:8px;">
         <button id="ocrCaptureBtn">📷 OCRで追加</button>
         <input type="file" id="ocrInput" accept="image/*" capture="environment" class="hidden" />
-        <canvas id="cropCanvas" class="hidden" style="width:100%;border:1px solid #000;margin-top:8px;"></canvas>
+        <canvas id="cropCanvas" class="hidden"></canvas>
       </div>
       <div id="checklist"></div>
     </section>
 
-    <!-- Checked List Page -->
+    <!-- チェック済みリスト -->
     <section id="page-checked" class="hidden">
-      <h2 id="checkedTitle">チェック済みリスト</h2>
+      <h2>チェック済みリスト</h2>
       <div id="checkedList"></div>
     </section>
   </main>
@@ -70,169 +73,141 @@
   </nav>
 
   <script>
-    const PASSWORD = '0509';
-    let lang = 'ja';
-    let currentPage = 'page-password';
+    const PASSWORD = "letmein123";
+    let currentPage = "page-password";
 
-    const texts = {
-      ja: {
-        passwordTitle: 'パスワード入力',
-        passwordPlaceholder: 'パスワードを入力',
-        loginTitle: 'ログイン',
-        checklistTitle: 'チェックリスト',
-        checkedTitle: 'チェック済みリスト',
-        wrongPass: 'パスワードが違います',
-        add: '追加',
-        ocrAdd: 'OCRで追加'
-      },
-      en: {
-        passwordTitle: 'Enter Password',
-        passwordPlaceholder: 'Enter password',
-        loginTitle: 'Login',
-        checklistTitle: 'Checklist',
-        checkedTitle: 'Checked Items',
-        wrongPass: 'Incorrect password',
-        add: 'Add',
-        ocrAdd: 'Add by OCR'
-      }
-    };
-
-    const pages = ['page-password','page-login','page-checklist','page-checked'];
-
+    const pages = ["page-password","page-login","page-checklist","page-checked"];
     function showPage(id){
-      pages.forEach(p => document.getElementById(p).classList.add('hidden'));
-      document.getElementById(id).classList.remove('hidden');
+      pages.forEach(p=>document.getElementById(p).classList.add("hidden"));
+      document.getElementById(id).classList.remove("hidden");
       currentPage = id;
-      document.getElementById('title').textContent = texts[lang][`${id.replace('page-','')}Title`] || '';
     }
 
-    function applyLang(){
-      document.getElementById('passwordInput').placeholder = texts[lang].passwordPlaceholder;
-      document.getElementById('passwordError').textContent = texts[lang].wrongPass;
-      document.getElementById('addProductBtn').textContent = texts[lang].add;
-      document.getElementById('ocrCaptureBtn').textContent = texts[lang].ocrAdd;
-      document.getElementById('checklistTitle').textContent = texts[lang].checklistTitle;
-      document.getElementById('checkedTitle').textContent = texts[lang].checkedTitle;
-      showPage(currentPage);
-    }
-
-    document.getElementById('langBtn').addEventListener('click',()=>{
-      lang = (lang==='ja') ? 'en' : 'ja';
-      applyLang();
-    });
-
-    document.getElementById('navPassword').onclick=()=>showPage('page-password');
-    document.getElementById('navLogin').onclick=()=>showPage('page-login');
-    document.getElementById('navChecklist').onclick=()=>showPage('page-checklist');
-    document.getElementById('navChecked').onclick=()=>showPage('page-checked');
-
-    document.getElementById('passwordSubmit').onclick=()=>{
-      const val = document.getElementById('passwordInput').value;
-      if(val===PASSWORD){
-        showPage('page-login');
-      }else{
-        const err = document.getElementById('passwordError');
-        err.style.display='block';
-        setTimeout(()=>err.style.display='none',2000);
+    document.getElementById("passwordSubmit").onclick = ()=>{
+      const val = document.getElementById("passwordInput").value;
+      if(val===PASSWORD){ showPage("page-login"); }
+      else {
+        const err=document.getElementById("passwordError");
+        err.style.display="block"; setTimeout(()=>err.style.display="none",2000);
       }
     };
-
-    document.getElementById('loginSubmit').onclick=()=>{
-      const id = document.getElementById('userIdInput').value.trim();
-      if(!id) return alert('IDを入力してください');
-      localStorage.setItem('indent:user', id);
-      showPage('page-checklist');
+    document.getElementById("loginSubmit").onclick=()=>{
+      const id=document.getElementById("userIdInput").value.trim();
+      if(!id) return alert("IDを入力してください");
+      localStorage.setItem("indent:user", id);
+      showPage("page-checklist");
     };
 
-    const checklistEl = document.getElementById('checklist');
-    const checkedListEl = document.getElementById('checkedList');
+    document.getElementById("navPassword").onclick=()=>showPage("page-password");
+    document.getElementById("navLogin").onclick=()=>showPage("page-login");
+    document.getElementById("navChecklist").onclick=()=>showPage("page-checklist");
+    document.getElementById("navChecked").onclick=()=>showPage("page-checked");
 
-    let checklist = JSON.parse(localStorage.getItem('indent:checklist')||'[]');
-    let checkedList = JSON.parse(localStorage.getItem('indent:checkedList')||'[]');
-
+    let checklist = JSON.parse(localStorage.getItem("indent:checklist")||"[]");
+    let checkedList = JSON.parse(localStorage.getItem("indent:checkedList")||"[]");
     function saveData(){
-      localStorage.setItem('indent:checklist', JSON.stringify(checklist));
-      localStorage.setItem('indent:checkedList', JSON.stringify(checkedList));
+      localStorage.setItem("indent:checklist", JSON.stringify(checklist));
+      localStorage.setItem("indent:checkedList", JSON.stringify(checkedList));
     }
+
+    const checklistEl = document.getElementById("checklist");
+    const checkedListEl = document.getElementById("checkedList");
 
     function renderLists(){
-      checklistEl.innerHTML='';
+      checklistEl.innerHTML="";
       checklist.forEach((item,i)=>{
-        const div=document.createElement('div');
-        div.className='list-item';
-        div.innerHTML=`${item.code} ×${item.qty} <button data-i="${i}" class="checkBtn">✔</button>`;
+        const div=document.createElement("div");
+        div.className="list-item";
+        div.innerHTML=`
+          <span>${item.code}</span>
+          <input type="number" min="1" value="${item.qty}" data-i="${i}" class="qtyInput"/>
+          <button class="copyBtn" data-code="${item.code}">コピー</button>
+          <button class="checkBtn" data-i="${i}">✔</button>
+        `;
         checklistEl.appendChild(div);
       });
-      document.querySelectorAll('.checkBtn').forEach(btn=>btn.onclick=(e)=>{
-        const i = e.target.dataset.i;
-        const item = checklist[i];
-        checkedList.push(item);
-        checklist.splice(i,1);
-        saveData();
-        renderLists();
+
+      document.querySelectorAll(".qtyInput").forEach(inp=>{
+        inp.onchange=(e)=>{
+          const i=e.target.dataset.i;
+          checklist[i].qty=Number(e.target.value)||1;
+          saveData();
+        };
       });
 
-      checkedListEl.innerHTML='';
+      document.querySelectorAll(".copyBtn").forEach(btn=>{
+        btn.onclick=()=>{ navigator.clipboard.writeText(btn.dataset.code); alert("コピーしました"); };
+      });
+
+      document.querySelectorAll(".checkBtn").forEach(btn=>{
+        btn.onclick=(e)=>{
+          const i=e.target.dataset.i;
+          checkedList.push(checklist[i]);
+          checklist.splice(i,1);
+          saveData(); renderLists();
+        };
+      });
+
+      checkedListEl.innerHTML="";
       checkedList.forEach(item=>{
-        const div=document.createElement('div');
-        div.className='list-item';
+        const div=document.createElement("div");
+        div.className="list-item";
         div.textContent=`${item.code} ×${item.qty}`;
         checkedListEl.appendChild(div);
       });
     }
 
-    document.getElementById('addProductBtn').onclick=()=>{
-      const code = document.getElementById('productCodeInput').value.trim();
-      const qty = Number(document.getElementById('productQtyInput').value)||1;
-      if(!/^[0-9]{7}$/.test(code)) return alert('7桁のコードを入力してください');
-      checklist.push({code, qty});
-      saveData();
-      renderLists();
-      document.getElementById('productCodeInput').value='';
+    document.getElementById("addProductBtn").onclick=()=>{
+      const code=document.getElementById("productCodeInput").value.trim();
+      const qty=Number(document.getElementById("productQtyInput").value)||1;
+      if(!/^[0-9]{7}$/.test(code)) return alert("7桁のコードを入力してください");
+      checklist.push({code,qty});
+      saveData(); renderLists();
+      document.getElementById("productCodeInput").value="";
     };
 
-    // === OCR機能（高精度前処理付き）===
-    const ocrBtn = document.getElementById('ocrCaptureBtn');
-    const ocrInput = document.getElementById('ocrInput');
-
+    // ===== OCR機能（複数コード対応） =====
+    const ocrBtn=document.getElementById("ocrCaptureBtn");
+    const ocrInput=document.getElementById("ocrInput");
     ocrBtn.onclick=()=>ocrInput.click();
 
-    ocrInput.onchange = async (e)=>{
-      const file = e.target.files[0];
+    ocrInput.onchange=async(e)=>{
+      const file=e.target.files[0];
       if(!file) return;
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      img.onload = async ()=>{
-        const canvas = document.getElementById('cropCanvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+      const img=new Image();
+      img.src=URL.createObjectURL(file);
+      img.onload=async()=>{
+        const canvas=document.getElementById("cropCanvas");
+        const ctx=canvas.getContext("2d");
+        canvas.width=img.width;
+        canvas.height=img.height;
+        ctx.drawImage(img,0,0);
 
-        // --- 白黒変換（二値化）で精度アップ ---
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        for (let i = 0; i < data.length; i += 4) {
-          const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-          const value = avg > 140 ? 255 : 0;
-          data[i] = data[i + 1] = data[i + 2] = value;
+        // 白黒変換で精度向上
+        const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+        const data=imageData.data;
+        for(let i=0;i<data.length;i+=4){
+          const avg=(data[i]+data[i+1]+data[i+2])/3;
+          const v=avg>140?255:0;
+          data[i]=data[i+1]=data[i+2]=v;
         }
-        ctx.putImageData(imageData, 0, 0);
-        canvas.classList.remove('hidden');
+        ctx.putImageData(imageData,0,0);
+        canvas.classList.remove("hidden");
 
-        const result = await Tesseract.recognize(canvas, 'eng', {
-          tessedit_char_whitelist: '0123456789',
-          tessedit_pageseg_mode: 7
+        // OCR複数認識
+        const result=await Tesseract.recognize(canvas,"eng",{
+          tessedit_char_whitelist:"0123456789",
         });
 
-        const text = result.data.text.replace(/\\D/g,'').slice(0,7);
-        if(text.length===7){
-          const qty = prompt('個数を入力してください', '1');
-          checklist.push({code:text, qty:Number(qty)||1});
-          saveData();
-          renderLists();
+        const found = result.data.text.match(/\d{7}/g);
+        if(found && found.length>0){
+          found.forEach(num=>{
+            checklist.push({code:num, qty:1});
+          });
+          saveData(); renderLists();
+          alert(`${found.length}件のコードを追加しました`);
         } else {
-          alert('OCRで7桁の番号を検出できませんでした。');
+          alert("7桁のコードを検出できませんでした。");
         }
       };
     };
