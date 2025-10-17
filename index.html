@@ -29,17 +29,20 @@ nav button:last-child { border-right:none; }
 </header>
 
 <main>
+<!-- パスワード入力 -->
 <section id="page-password">
 <input id="passwordInput" type="password" placeholder="パスワードを入力" />
 <button type="button" id="passwordSubmit">ログイン</button>
 <p id="passwordError" style="color:red;display:none">パスワードが違います</p>
 </section>
 
+<!-- ログイン -->
 <section id="page-login" class="hidden">
 <input id="userIdInput" placeholder="ユーザーIDを入力" />
 <button type="button" id="loginSubmit">ログイン</button>
 </section>
 
+<!-- チェック待ちリスト -->
 <section id="page-checklist" class="hidden">
 <h2 id="checklistTitle">チェック待ちリスト</h2>
 <div style="display:flex;gap:8px;margin-bottom:8px;">
@@ -51,17 +54,21 @@ nav button:last-child { border-right:none; }
 <button type="button" id="ocrCaptureBtn">📷 OCRで追加</button>
 <input type="file" id="ocrInput" accept="image/*" capture="environment" class="hidden" />
 </div>
-<div style="display:flex; gap:4px; margin-bottom:8px;">
-<input id="groupNameInput" placeholder="グループ名" />
-<button id="groupAssignBtn">選択商品をグループ分け</button>
-</div>
 <div id="checklist"></div>
 <div style="display:flex;gap:8px;margin-top:8px;">
+<button type="button" id="decideBtn">選択商品をチェックリストに決定</button>
 <button type="button" id="resetChecklistBtn">チェック待ちリストをリセット</button>
 <button type="button" id="resetAllBtn">全データをリセット</button>
 </div>
 </section>
 
+<!-- チェックリスト -->
+<section id="page-ready" class="hidden">
+<h2 id="readyTitle">チェックリスト</h2>
+<div id="readyList"></div>
+</section>
+
+<!-- チェック済みリスト -->
 <section id="page-checked" class="hidden">
 <h2 id="checkedTitle">チェック済みリスト</h2>
 <div id="checkedList"></div>
@@ -71,6 +78,7 @@ nav button:last-child { border-right:none; }
 
 <nav>
 <button type="button" id="navChecklist">📋 チェック待ち</button>
+<button type="button" id="navReady">📝 チェックリスト</button>
 <button type="button" id="navChecked">✅ チェック済み</button>
 </nav>
 
@@ -78,35 +86,34 @@ nav button:last-child { border-right:none; }
 document.addEventListener("DOMContentLoaded",()=>{
 
 const PASSWORD="0509";
-let currentPage="page-password";
 let lang="ja";
 let checklist=JSON.parse(localStorage.getItem("indent:checklist")||"[]");
+let readyList=JSON.parse(localStorage.getItem("indent:readyList")||"[]");
 let checkedList=JSON.parse(localStorage.getItem("indent:checkedList")||"[]");
 let isPasswordOk=false;
 let isLoginOk=false;
 
 const texts={
 ja:{
-password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト",
+password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", ready:"チェックリスト", checked:"チェック済みリスト",
 add:"追加", enterID:"IDを入力してください", passFirst:"パスワードを先に突破してください",
 code7:"7桁のコードを入力してください", copied:"コピーしました", ocrAdded:"OCRで追加しました",
 resetChecklist:"チェック待ちリストをリセット", resetChecked:"チェック済みリストをリセット", resetAll:"全データをリセット",
-groupAssign:"選択商品をグループ分け", enterGroup:"グループ名を入力してください"
+decide:"選択商品をチェックリストに決定"
 },
 en:{
-password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items",
+password:"Enter Password", login:"Login", checklist:"Checklist", ready:"Ready List", checked:"Checked Items",
 add:"Add", enterID:"Please enter ID", passFirst:"Please enter password first",
 code7:"Please enter 7 digits code", copied:"Copied", ocrAdded:"Added via OCR",
 resetChecklist:"Reset Checklist", resetChecked:"Reset Checked", resetAll:"Reset All",
-groupAssign:"Assign selected items to group", enterGroup:"Please enter group name"
+decide:"Decide selected items"
 }
 };
 
-function showPage(id){ 
-  ["page-password","page-login","page-checklist","page-checked"].forEach(p=>document.getElementById(p).classList.add("hidden"));
+function showPage(id){
+  ["page-password","page-login","page-checklist","page-ready","page-checked"].forEach(p=>document.getElementById(p).classList.add("hidden"));
   document.getElementById(id).classList.remove("hidden");
-  currentPage=id;
-  if(id!=="page-password" && id!=="page-login") document.getElementById("title").textContent=texts[lang][id.replace("page-","")];
+  if(id!=="page-password" && id!=="page-login") document.getElementById("title").textContent=texts[lang][id.replace("page-","")]||"";
   updateButtonTexts();
 }
 
@@ -115,7 +122,7 @@ function updateButtonTexts(){
   document.getElementById("resetChecklistBtn").textContent=texts[lang].resetChecklist;
   document.getElementById("resetCheckedBtn").textContent=texts[lang].resetChecked;
   document.getElementById("resetAllBtn").textContent=texts[lang].resetAll;
-  document.getElementById("groupAssignBtn").textContent=texts[lang].groupAssign;
+  document.getElementById("decideBtn").textContent=texts[lang].decide;
 }
 
 document.getElementById("langBtn").addEventListener("click",()=>{
@@ -138,45 +145,29 @@ document.getElementById("loginSubmit").addEventListener("click",()=>{
   showPage("page-checklist");
 });
 
-function saveData(){ localStorage.setItem("indent:checklist",JSON.stringify(checklist)); localStorage.setItem("indent:checkedList",JSON.stringify(checkedList)); }
-
-function getCheckedSummary(){
-  const summary={};
-  checkedList.forEach(item=>{
-    if(summary[item.code]) summary[item.code].qty+=item.qty;
-    else summary[item.code]={qty:item.qty,memo:item.memo||"",group:item.group||""};
-  });
-  return summary;
+function saveData(){
+  localStorage.setItem("indent:checklist",JSON.stringify(checklist));
+  localStorage.setItem("indent:readyList",JSON.stringify(readyList));
+  localStorage.setItem("indent:checkedList",JSON.stringify(checkedList));
 }
 
 function renderLists(){
+  // チェック待ち
   const checklistEl=document.getElementById("checklist");
-  const checkedListEl=document.getElementById("checkedList");
   checklistEl.innerHTML="";
   checklist.forEach((item,i)=>{
     const div=document.createElement("div");
     div.className="list-item";
     div.innerHTML=`<input type="checkbox" class="selectItem" data-i="${i}"/>
-      <span>${item.code} ${item.group?('['+item.group+']'):""}</span>
+      <span>${item.code}</span>
       <input type="number" min="1" value="${item.qty}" data-i="${i}" class="qtyInput"/>
       <input class="memoInput" type="text" placeholder="メモ" value="${item.memo||''}" data-i="${i}"/>
-      <button type="button" class="copyBtn" data-code="${item.code}">${texts[lang].copied}</button>
-      <button type="button" class="checkBtn" data-i="${i}">✔</button>`;
+      <button type="button" class="copyBtn" data-code="${item.code}">📋</button>`;
     checklistEl.appendChild(div);
   });
 
   checklistEl.addEventListener("click", function(e){
     const target=e.target;
-    if(target.classList.contains("checkBtn")){
-      const i=target.dataset.i;
-      const item=checklist[i];
-      if(item.qty<1) return;
-      checkedList.push({code:item.code,qty:1,memo:item.memo,group:item.group});
-      item.qty -=1;
-      if(item.qty===0) checklist.splice(i,1);
-      saveData();
-      renderLists();
-    }
     if(target.classList.contains("copyBtn")){
       navigator.clipboard.writeText(target.dataset.code);
       alert(texts[lang].copied);
@@ -186,66 +177,90 @@ function renderLists(){
   document.querySelectorAll(".qtyInput").forEach(inp=>{ inp.onchange=e=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); }; });
   document.querySelectorAll(".memoInput").forEach(inp=>{ inp.oninput=e=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); }; });
 
-  checkedListEl.innerHTML="";
-  const summary=getCheckedSummary();
+  // チェックリスト
+  const readyEl=document.getElementById("readyList");
+  readyEl.innerHTML="";
+  readyList.forEach((item,i)=>{
+    const div=document.createElement("div");
+    div.className="list-item";
+    div.innerHTML=`<span>${item.code}</span> <input type="number" min="1" value="${item.qty}" data-i="${i}" class="readyQty"/>
+      <button type="button" class="checkBtn" data-i="${i}">✔</button>`;
+    readyEl.appendChild(div);
+  });
+
+  readyEl.addEventListener("click",function(e){
+    if(e.target.classList.contains("checkBtn")){
+      const i=e.target.dataset.i;
+      const item=readyList[i];
+      checkedList.push({code:item.code,qty:1});
+      item.qty-=1;
+      if(item.qty<=0) readyList.splice(i,1);
+      saveData(); renderLists();
+    }
+  });
+
+  document.querySelectorAll(".readyQty").forEach(inp=>{ inp.onchange=e=>{ readyList[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); renderLists(); }; });
+
+  // チェック済み
+  const checkedEl=document.getElementById("checkedList");
+  checkedEl.innerHTML="";
+  const summary={};
+  checkedList.forEach(item=>{ summary[item.code]=(summary[item.code]||0)+item.qty; });
   Object.keys(summary).forEach(code=>{
     const div=document.createElement("div");
     div.className="list-item";
-    div.textContent=`${code} ×${summary[code].qty} ${summary[code].memo?('('+summary[code].memo+')'):""} ${summary[code].group?('['+summary[code].group+']'):""}`;
-    checkedListEl.appendChild(div);
+    div.textContent=`${code} ×${summary[code]}`;
+    checkedEl.appendChild(div);
   });
 }
 
 renderLists();
 
-// --- グループ分け ---
-document.getElementById("groupAssignBtn").addEventListener("click",()=>{
-  const groupName=document.getElementById("groupNameInput").value.trim();
-  if(!groupName) return alert(texts[lang].enterGroup);
+// 決定ボタン
+document.getElementById("decideBtn").addEventListener("click",()=>{
   document.querySelectorAll(".selectItem:checked").forEach(cb=>{
     const i=cb.dataset.i;
-    checklist[i].group=groupName;
+    readyList.push({...checklist[i]});
   });
+  // 選択分を削除
+  checklist=checklist.filter((item,i)=>!document.querySelector(`.selectItem[data-i="${i}"]`).checked);
   saveData(); renderLists();
-  document.getElementById("groupNameInput").value="";
 });
 
-// --- 手入力追加 ---
+// 手入力追加
 document.getElementById("addProductBtn").addEventListener("click",()=>{
   if(!isLoginOk) return alert(texts[lang].passFirst);
   const code=document.getElementById("productCodeInput").value.trim();
   const qty=Number(document.getElementById("productQtyInput").value)||1;
   if(!/^\d{7}$/.test(code)) return alert(texts[lang].code7);
-  checklist.push({code, qty, memo:""});
+  checklist.push({code,qty,memo:""});
   saveData(); renderLists();
   document.getElementById("productCodeInput").value="";
 });
 
-// --- OCR ---
+// OCR
 const ocrBtn=document.getElementById("ocrCaptureBtn");
 const ocrInput=document.getElementById("ocrInput");
 ocrBtn.addEventListener("click",()=>ocrInput.click());
 ocrInput.addEventListener("change",async(e)=>{
   if(!isLoginOk) return alert(texts[lang].passFirst);
   const file=e.target.files[0]; if(!file) return;
-  const { data:{text} } = await Tesseract.recognize(file,'eng');
+  const { data:{text} }=await Tesseract.recognize(file,'eng');
   const codes=text.match(/\b\d{7}\b/g);
-  if(codes){
-    codes.forEach(code=>checklist.push({code,qty:1,memo:""}));
-    saveData(); renderLists(); // 即反映
-  }
+  if(codes){ codes.forEach(code=>checklist.push({code,qty:1,memo:""})); saveData(); renderLists(); }
   alert(texts[lang].ocrAdded);
   ocrInput.value="";
 });
 
-// --- リセット ---
-document.getElementById("resetChecklistBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checklist=[]; saveData(); renderLists(); });
-document.getElementById("resetCheckedBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checkedList=[]; saveData(); renderLists(); });
-document.getElementById("resetAllBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checklist=[]; checkedList=[]; saveData(); renderLists(); });
+// リセット
+document.getElementById("resetChecklistBtn").addEventListener("click",()=>{ checklist=[]; saveData(); renderLists(); });
+document.getElementById("resetCheckedBtn").addEventListener("click",()=>{ checkedList=[]; saveData(); renderLists(); });
+document.getElementById("resetAllBtn").addEventListener("click",()=>{ checklist=[]; readyList=[]; checkedList=[]; saveData(); renderLists(); });
 
-// --- ナビゲーション ---
-document.getElementById("navChecklist").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checklist"); });
-document.getElementById("navChecked").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checked"); });
+// ナビ
+document.getElementById("navChecklist").addEventListener("click",()=>showPage("page-checklist"));
+document.getElementById("navReady").addEventListener("click",()=>showPage("page-ready"));
+document.getElementById("navChecked").addEventListener("click",()=>showPage("page-checked"));
 
 });
 </script>
