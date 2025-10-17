@@ -73,7 +73,7 @@ nav button:last-child { border-right:none; }
 <script>
 document.addEventListener("DOMContentLoaded",()=>{
 
-const PASSWORD="letmein123";
+const PASSWORD="0509";
 let currentPage="page-password";
 let lang="ja";
 let checklist=JSON.parse(localStorage.getItem("indent:checklist")||"[]");
@@ -83,8 +83,8 @@ let isLoginOk=false;
 
 // --- テキスト ---
 const texts={
-ja:{ password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト", add:"追加" },
-en:{ password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items", add:"Add" }
+ja:{ password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト", add:"追加", enterID:"IDを入力してください", passFirst:"パスワードを先に突破してください", code7:"7桁のコードを入力してください", copied:"コピーしました", ocrAdded:"OCRで追加しました", selectArea:"範囲を選択してください", noCode:"認識できませんでした" },
+en:{ password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items", add:"Add", enterID:"Please enter ID", passFirst:"Please enter password first", code7:"Please enter 7 digits code", copied:"Copied", ocrAdded:"Added via OCR", selectArea:"Select area", noCode:"No code detected" }
 };
 
 // --- ページ切替 ---
@@ -95,10 +95,14 @@ function showPage(id){
   if(id!=="page-password" && id!=="page-login") document.getElementById("title").textContent=texts[lang][id.replace("page-","")];
 }
 
-// --- スマホ対応クリック ---
-function addSmartClick(el,handler){
-  el.addEventListener("click",handler);
-  el.addEventListener("touchstart",e=>{ e.preventDefault(); handler(); });
+// --- スマホ/PC両対応クリック ---
+function addSmartClick(el, handler){
+  const isTouch = 'ontouchstart' in window;
+  if(isTouch){
+    el.addEventListener("touchstart", e=>{ e.preventDefault(); handler(); });
+  } else {
+    el.addEventListener("click", handler);
+  }
 }
 
 // --- 言語切替 ---
@@ -113,9 +117,9 @@ addSmartClick(document.getElementById("passwordSubmit"),()=>{
 
 // --- ログイン ---
 addSmartClick(document.getElementById("loginSubmit"),()=>{
-  if(!isPasswordOk) return alert(lang==="ja"?"パスワードを先に突破してください":"Please enter password first");
+  if(!isPasswordOk) return alert(texts[lang].passFirst);
   const id=document.getElementById("userIdInput").value.trim();
-  if(!id) return alert(lang==="ja"?"IDを入力してください":"Please enter ID");
+  if(!id) return alert(texts[lang].enterID);
   localStorage.setItem("indent:user",id);
   isLoginOk=true;
   showPage("page-checklist");
@@ -140,13 +144,13 @@ function renderLists(){
     checklistEl.appendChild(div);
   });
 
-  checklistEl.addEventListener("click",function(e){
+  checklistEl.addEventListener("click", function(e){
     if(e.target.classList.contains("checkBtn")){
       const i=e.target.dataset.i; checkedList.push(checklist[i]); checklist.splice(i,1); saveData(); renderLists();
     }
     if(e.target.classList.contains("copyBtn")){
       navigator.clipboard.writeText(e.target.dataset.code);
-      alert(lang==="ja"?"コピーしました":"Copied");
+      alert(texts[lang].copied);
     }
   });
 
@@ -166,14 +170,26 @@ renderLists();
 
 // --- 手入力追加 ---
 addSmartClick(document.getElementById("addProductBtn"),()=>{
-  if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login");
+  if(!isLoginOk) return alert(texts[lang].passFirst);
   const code=document.getElementById("productCodeInput").value.trim();
   const qty=Number(document.getElementById("productQtyInput").value)||1;
-  if(!/^\d{7}$/.test(code)) return alert(lang==="ja"?"7桁のコードを入力してください":"Please enter 7 digits code");
+  if(!/^\d{7}$/.test(code)) return alert(texts[lang].code7);
   checklist.push({code,qty,memo:""}); saveData(); renderLists(); document.getElementById("productCodeInput").value="";
 });
 
-// --- リセットボタン ---
-addSmartClick(document.getElementById("resetChecklistBtn"),()=>{ if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login"); checklist=[]; saveData(); renderLists(); });
-addSmartClick(document.getElementById("resetCheckedBtn"),()=>{ if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login"); checkedList=[]; saveData(); renderLists(); });
-addSmartClick(document.getElementById("resetAllBtn"),()=>{ if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login"); checklist
+// --- リセット ---
+addSmartClick(document.getElementById("resetChecklistBtn"),()=>{ if(!isLoginOk) return; checklist=[]; saveData(); renderLists(); });
+addSmartClick(document.getElementById("resetCheckedBtn"),()=>{ if(!isLoginOk) return; checkedList=[]; saveData(); renderLists(); });
+addSmartClick(document.getElementById("resetAllBtn"),()=>{ if(!isLoginOk) return; checklist=[]; checkedList=[]; saveData(); renderLists(); });
+
+// --- OCR + トリミング ---
+const ocrInput = document.getElementById("ocrInput");
+const cropCanvas = document.getElementById("cropCanvas");
+let ctx=cropCanvas.getContext("2d");
+let imgObj=new Image();
+let startX=0,startY=0,endX=0,endY=0,isDrawing=false;
+
+addSmartClick(document.getElementById("ocrCaptureBtn"),()=>{ if(!isLoginOk) return; ocrInput.click(); });
+
+ocrInput.onchange=(e)=>{
+  const file = e.target.files[0]; if(!
