@@ -32,17 +32,20 @@ nav button:last-child { border-right:none; }
 </header>
 
 <main>
+<!-- パスワードページ -->
 <section id="page-password">
 <input id="passwordInput" type="password" placeholder="パスワードを入力" />
 <button id="passwordSubmit">ログイン</button>
 <p id="passwordError" style="color:red;display:none">パスワードが違います</p>
 </section>
 
+<!-- ログインページ -->
 <section id="page-login" class="hidden">
 <input id="userIdInput" placeholder="ユーザーIDを入力" />
 <button id="loginSubmit">ログイン</button>
 </section>
 
+<!-- チェック待ちリストページ -->
 <section id="page-checklist" class="hidden">
 <h2 id="checklistTitle">チェック待ちリスト</h2>
 <div style="display:flex;gap:8px;margin-bottom:8px;">
@@ -56,14 +59,18 @@ nav button:last-child { border-right:none; }
 </div>
 <div id="checklist"></div>
 <button id="createGroupBtn" style="margin-top:8px;">＋グループ作成</button>
+<button id="resetChecklistBtn" style="margin-top:8px;">チェック待ちリストをリセット</button>
+<button id="resetAllBtn" style="margin-top:8px;">全データをリセット</button>
 </section>
 
+<!-- チェック済みリストページ -->
 <section id="page-checked" class="hidden">
 <h2 id="checkedTitle">チェック済みリスト</h2>
 <div id="checkedList"></div>
+<button id="resetCheckedBtn" style="margin-top:8px;">チェック済みリストをリセット</button>
 </section>
 
-<!-- モーダル -->
+<!-- グループ作成モーダル -->
 <div id="groupModal" class="modal hidden">
 <div class="modalContent">
 <h3 id="groupModalTitle">グループ名を入力</h3>
@@ -83,22 +90,26 @@ nav button:last-child { border-right:none; }
 </nav>
 
 <script>
+document.addEventListener("DOMContentLoaded",()=>{
+
 const PASSWORD="letmein123";
 let currentPage="page-password";
 let lang="ja";
 let checklist=JSON.parse(localStorage.getItem("indent:checklist")||"[]");
 let checkedList=JSON.parse(localStorage.getItem("indent:checkedList")||"[]");
 
+// --- テキスト ---
 const texts={
-  ja:{ password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト", add:"追加", groupModal:"グループ名を入力", createGroup:"＋グループ作成" },
-  en:{ password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items", add:"Add", groupModal:"Enter group name", createGroup:"＋Create Group" }
+ja:{ password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト", add:"追加", groupModal:"グループ名を入力", createGroup:"＋グループ作成" },
+en:{ password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items", add:"Add", groupModal:"Enter group name", createGroup:"＋Create Group" }
 };
 
-// --- ページ表示 ---
+// --- ページ切替 ---
 function showPage(id){ 
   ["page-password","page-login","page-checklist","page-checked"].forEach(p=>document.getElementById(p).classList.add("hidden"));
   document.getElementById(id).classList.remove("hidden");
   currentPage=id;
+  document.getElementById("title").textContent=texts[lang][id.replace("page-","")];
 }
 document.getElementById("navPassword").onclick=()=>showPage("page-password");
 document.getElementById("navLogin").onclick=()=>showPage("page-login");
@@ -123,10 +134,7 @@ document.getElementById("loginSubmit").onclick=()=>{
 // --- 言語切替 ---
 document.getElementById("langBtn").onclick=()=>{
   lang=(lang==="ja"?"en":"ja");
-  document.getElementById("title").textContent=texts[lang][currentPage.replace("page-","")];
-  document.getElementById("addProductBtn").textContent=texts[lang].add;
-  document.getElementById("createGroupBtn").textContent=texts[lang].createGroup;
-  document.getElementById("groupModalTitle").textContent=texts[lang].groupModal;
+  showPage(currentPage);
 };
 
 // --- 保存 ---
@@ -140,57 +148,18 @@ function renderLists(){
   const checklistEl=document.getElementById("checklist");
   const checkedListEl=document.getElementById("checkedList");
   checklistEl.innerHTML="";
-
   checklist.forEach((item,i)=>{
     const div=document.createElement("div");
     div.className="list-item";
     div.innerHTML=`<input type="checkbox" data-i="${i}" style="margin-right:6px;"/>
-      <span>${item.code}</span>
-      <input type="number" min="1" value="${item.qty}" data-i="${i}" class="qtyInput"/>
-      <input class="memoInput" type="text" placeholder="メモ" value="${item.memo||''}" data-i="${i}"/>
-      <button class="copyBtn" data-code="${item.code}">コピー</button>
-      <button class="checkBtn" data-i="${i}">✔</button>`;
+    <span>${item.code}</span>
+    <input type="number" min="1" value="${item.qty}" data-i="${i}" class="qtyInput"/>
+    <input class="memoInput" type="text" placeholder="メモ" value="${item.memo||''}" data-i="${i}"/>
+    <button class="copyBtn" data-code="${item.code}">コピー</button>
+    <button class="checkBtn" data-i="${i}">✔</button>`;
     checklistEl.appendChild(div);
   });
-
-  document.querySelectorAll(".qtyInput").forEach(inp=>{
-    inp.onchange=(e)=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); };
-  });
-  document.querySelectorAll(".memoInput").forEach(inp=>{
-    inp.oninput=(e)=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); };
-  });
-  document.querySelectorAll(".copyBtn").forEach(btn=>{
-    btn.onclick=()=>{ navigator.clipboard.writeText(btn.dataset.code); alert(lang==="ja"?"コピーしました":"Copied"); };
-  });
-  document.querySelectorAll(".checkBtn").forEach(btn=>{
-    btn.onclick=()=>{
-      const i=btn.dataset.i; checkedList.push(checklist[i]); checklist.splice(i,1); saveData(); renderLists();
-    };
-  });
-
-  checkedListEl.innerHTML="";
-  checkedList.forEach(item=>{
-    const div=document.createElement("div");
-    div.className="list-item";
-    div.textContent=`${item.code} ×${item.qty} ${item.memo?('('+item.memo+')'):""}`;
-    checkedListEl.appendChild(div);
-  });
-}
-
-renderLists();
-
-// --- 手入力追加 ---
-document.getElementById("addProductBtn").onclick=()=>{
-  const code=document.getElementById("productCodeInput").value.trim();
-  const qty=Number(document.getElementById("productQtyInput").value)||1;
-  if(!/^\d{7}$/.test(code)) return alert(lang==="ja"?"7桁のコードを入力してください":"Please enter 7 digits code");
-  checklist.push({code,qty,memo:""});
-  saveData(); renderLists();
-  document.getElementById("productCodeInput").value="";
-};
-
-// --- OCR ---
-document.getElementById("ocrCaptureBtn").onclick=()=>document.getElementById("ocrInput").click();
-document.getElementById("ocrInput").onchange=async(e)=>{
-  const file=e.target.files[0]; if(!file) return;
-  const result=await Tesseract.recognize(file,"eng",{tess
+  document.querySelectorAll(".qtyInput").forEach(inp=>{inp.onchange=e=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); }; });
+  document.querySelectorAll(".memoInput").forEach(inp=>{inp.oninput=e=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); }; });
+  document.querySelectorAll(".copyBtn").forEach(btn=>{ btn.onclick=()=>{ navigator.clipboard.writeText(btn.dataset.code); alert(lang==="ja"?"コピーしました":"Copied"); }; });
+ 
