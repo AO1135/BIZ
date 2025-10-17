@@ -52,6 +52,9 @@ nav button:last-child { border-right:none; }
 <input type="file" id="ocrInput" accept="image/*" capture="environment" class="hidden" />
 </div>
 <div style="display:flex; gap:4px; margin-bottom:8px;">
+<button type="button" id="confirmTempBtn">追加を確定</button>
+</div>
+<div style="display:flex; gap:4px; margin-bottom:8px;">
 <input id="groupNameInput" placeholder="グループ名" />
 <button id="groupAssignBtn">選択商品をグループ分け</button>
 </div>
@@ -82,6 +85,7 @@ let currentPage="page-password";
 let lang="ja";
 let checklist=JSON.parse(localStorage.getItem("indent:checklist")||"[]");
 let checkedList=JSON.parse(localStorage.getItem("indent:checkedList")||"[]");
+let tempAdd=[]; // OCR・手入力の一時保留
 let isPasswordOk=false;
 let isLoginOk=false;
 
@@ -92,14 +96,14 @@ password:"パスワード入力", login:"ログイン", checklist:"チェック�
 add:"追加", enterID:"IDを入力してください", passFirst:"パスワードを先に突破してください",
 code7:"7桁のコードを入力してください", copied:"コピーしました", ocrAdded:"OCRで追加しました",
 resetChecklist:"チェック待ちリストをリセット", resetChecked:"チェック済みリストをリセット", resetAll:"全データをリセット",
-groupAssign:"選択商品をグループ分け"
+groupAssign:"選択商品をグループ分け", confirmTemp:"追加を確定"
 },
 en:{
 password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items",
 add:"Add", enterID:"Please enter ID", passFirst:"Please enter password first",
 code7:"Please enter 7 digits code", copied:"Copied", ocrAdded:"Added via OCR",
 resetChecklist:"Reset Checklist", resetChecked:"Reset Checked", resetAll:"Reset All",
-groupAssign:"Assign selected items to group"
+groupAssign:"Assign selected items to group", confirmTemp:"Confirm addition"
 }
 };
 
@@ -119,6 +123,7 @@ function updateButtonTexts(){
   document.getElementById("resetCheckedBtn").textContent=texts[lang].resetChecked;
   document.getElementById("resetAllBtn").textContent=texts[lang].resetAll;
   document.getElementById("groupAssignBtn").textContent=texts[lang].groupAssign;
+  document.getElementById("confirmTempBtn").textContent=texts[lang].confirmTemp;
 }
 
 document.getElementById("langBtn").addEventListener("click",()=>{
@@ -223,7 +228,9 @@ document.getElementById("addProductBtn").addEventListener("click",()=>{
   const code=document.getElementById("productCodeInput").value.trim();
   const qty=Number(document.getElementById("productQtyInput").value)||1;
   if(!/^\d{7}$/.test(code)) return alert(texts[lang].code7);
-  checklist.push({code,qty,memo:""}); saveData(); renderLists(); document.getElementById("productCodeInput").value="";
+  tempAdd.push({code,qty,memo:""});
+  document.getElementById("productCodeInput").value="";
+  alert(`${qty}件を一時追加`);
 });
 
 // --- OCR ---
@@ -235,41 +242,27 @@ ocrInput.addEventListener("change",async(e)=>{
   const file=e.target.files[0]; if(!file) return;
   const { data:{text} } = await Tesseract.recognize(file,'eng');
   const codes=text.match(/\b\d{7}\b/g);
-  if(codes) codes.forEach(code=>checklist.push({code,qty:1,memo:""}));
-  saveData(); renderLists();
+  if(codes) codes.forEach(code=>tempAdd.push({code,qty:1,memo:""}));
   alert(texts[lang].ocrAdded);
   ocrInput.value="";
 });
 
+// --- 一時追加確定 ---
+document.getElementById("confirmTempBtn").addEventListener("click",()=>{
+  if(tempAdd.length===0) return alert("追加する商品がありません");
+  checklist.push(...tempAdd);
+  tempAdd=[];
+  saveData(); renderLists();
+});
+
 // --- リセット ---
-document.getElementById("resetChecklistBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checklist=[]; saveData(); renderLists(); });
+document.getElementById("resetChecklistBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checklist=[]; tempAdd=[]; saveData(); renderLists(); });
 document.getElementById("resetCheckedBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checkedList=[]; saveData(); renderLists(); });
-document.getElementById("resetAllBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checklist=[]; checkedList=[]; saveData(); renderLists(); });
+document.getElementById("resetAllBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checklist=[]; checkedList=[]; tempAdd=[]; saveData(); renderLists(); });
 
 // --- ナビゲーション ---
 document.getElementById("navChecklist").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checklist"); });
 document.getElementById("navChecked").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checked"); });
-
-// --- 手入力チェック ---
-document.getElementById("productCodeInput").addEventListener("keypress",(e)=>{
-  if(e.key==="Enter"){
-    const code=e.target.value.trim();
-    if(!code) return;
-    const idx=checklist.findIndex(item=>item.code===code);
-    if(idx<0) return alert("該当なし");
-    const item=checklist[idx];
-    if(item.qty===1){
-      checkedList.push(item);
-      checklist.splice(idx,1);
-    } else {
-      let cnt=prompt(`数量を入力 (1〜${item.qty})`,1);
-      cnt=Math.min(Math.max(Number(cnt)||1,1),item.qty);
-      checklist[idx].qty-=cnt;
-      checkedList.push({code:item.code,qty:cnt,memo:item.memo,group:item.group});
-    }
-    saveData(); renderLists(); e.target.value="";
-  }
-});
 
 });
 </script>
