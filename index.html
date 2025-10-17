@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=1" />
+  <title>Indent — チェックリスト</title>
+  <!-- Cropper.js CSS -->
+  <link href="https://unpkg.com/cropperjs@1.5.13/dist/cropper.min.css" rel="stylesheet"/>
+  <style>
+    /* White & Black simple mobile-focused UI */
+    :root{--bg:#fff;--fg:#000;--accent:#000}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family: 'Noto Sans JP', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    header{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #ddd}
+    h1{font-size:18px;margin:0}
+    main{padding:12px;padding-bottom:80px}
+    input,select,button,textarea{font-size:16px;padding:10px;border:1px solid #000;border-radius:8px;background:transparent;color:var(--fg);box-sizing:border-box}
+    button{background:var(--fg);color:var(--bg);border:1px solid var(--fg)}
+    .row{display:flex;gap:8px}
+    .col{flex:1}
+
+    /* Pages */
+    section{display:none}
+    section.active{display:block}
+
+    /* List items */
+    .list-item{border:1px solid #000;border-radius:8px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+    .small{font-size:14px;color:#333}
+
+    /* Camera modal */
+    .modal{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:12px}
+    .card{background:#fff;padding:12px;border-radius:10px;max-width:680px;width:100%;box-sizing:border-box}
+    video{width:100%;border-radius:8px;background:#000}
+    img.preview{max-width:100%;display:block}
+
+    nav{position:fixed;left:0;right:0;bottom:0;display:flex;border-top:1px solid #ddd;background:#fff}
+    nav button{flex:1;padding:12px;border:none;background:transparent;font-size:16px}
+
+    /* responsive */
+    @media(min-width:700px){ main{max-width:700px;margin:0 auto} }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="title">パスワード入力</h1>
+    <div style="display:flex;gap:8px">
+      <button id="langBtn">日本語 / English</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Password Page -->
+    <section id="page-password" class="active">
+      <div style="margin-bottom:12px">
+        <input id="passwordInput" type="password" placeholder="パスワードを入力" />
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="passwordSubmit">ログイン</button>
+        <button id="toLogin" style="background:transparent;color:var(--fg);border:1px solid #000">ログイン画面へ</button>
+      </div>
+      <p id="passwordError" class="small" style="color:#c00;display:none;margin-top:8px">パスワードが違います</p>
+    </section>
+
+    <!-- Login Page -->
+    <section id="page-login">
+      <div style="margin-bottom:12px">
+        <input id="userIdInput" placeholder="ユーザーIDを入力（英数字）" />
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="loginSubmit">ログイン</button>
+        <button id="backToPass" style="background:transparent;color:var(--fg);border:1px solid #000">戻る</button>
+      </div>
+    </section>
+
+    <!-- Checklist Page -->
+    <section id="page-checklist">
+      <h2 id="checklistTitle">チェックリスト</h2>
+
+      <div style="margin:8px 0" class="row">
+        <input id="productCodeInput" placeholder="7桁のコード" />
+        <input id="productQtyInput" type="number" min="1" value="1" style="width:90px" />
+        <button id="addProductBtn">追加</button>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button id="ocrStartBtn">OCRで追加（撮影）</button>
+        <button id="ocrUploadBtn" style="background:transparent;color:var(--fg);border:1px solid #000">画像からOCR</button>
+      </div>
+
+      <div id="checklist"></div>
+    </section>
+
+    <!-- Checked Page -->
+    <section id="page-checked">
+      <h2 id="checkedTitle">チェック済みリスト</h2>
+      <div id="checkedList"></div>
+    </section>
+
+    <!-- OCR Modal -->
+    <div id="ocrModal" class="modal" style="display:none">
+      <div class="card">
+        <div id="cameraMode">
+          <video id="video" autoplay playsinline></video>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="captureBtn">撮影</button>
+            <button id="closeCamera" style="background:transparent;color:var(--fg);border:1px solid #000">閉じる</button>
+          </div>
+        </div>
+
+        <div id="cropMode" style="display:none;margin-top:8px">
+          <div style="margin-bottom:8px"><img id="cropImage" class="preview" /></div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button id="doCropBtn">トリミング確定</button>
+            <button id="retakeBtn" style="background:transparent;color:var(--fg);border:1px solid #000">再撮影</button>
+          </div>
+        </div>
+
+        <div id="ocrResultArea" style="display:none;margin-top:8px">
+          <div class="small">読み取り中...</div>
+          <textarea id="ocrText" rows="4" style="width:100%;margin-top:8px"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <label class="small">検出コード：</label>
+            <select id="detectedCodes"></select>
+            <input id="detectedQty" type="number" min="1" value="1" style="width:80px" />
+            <button id="addDetectedBtn">リストに追加</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="ocrCloseBtn" style="background:transparent;color:var(--fg);border:1px solid #000">閉じる</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <nav>
+    <button id="navPass">🔑</button>
+    <button id="navLogin2">👤</button>
+    <button id="navChecklist">📋</button>
+    <button id="navChecked">✅</button>
+  </nav>
+
+  <!-- Cropper.js and Tesseract.js -->
+  <script src="https://unpkg.com/cropperjs@1.5.13/dist/cropper.min.js"></script>
+  <script src="https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+
+  <script>
+    // -------------------- Config & i18n --------------------
+    const SITE_PASSWORD = 'letmein123'; // change in code if needed
+    let lang = 'ja';
+    const T = {
+      ja: {
+        titlePass: 'パスワード入力',
+        placeholderPass: 'パスワードを入力',
+        toLogin: 'ログイン画面へ',
+        loginTitle: 'ログイン',
+        checklistTitle: 'チェックリスト',
+        checkedTitle: 'チェック済みリスト',
+        wrongPass: 'パスワードが違います',
+        add: '追加',
+        ocrBtn: 'OCRで追加（撮影）',
+        ocrUpload: '画像からOCR',
+        capture: '撮影',
+        cropConfirm: 'トリミング確定',
+        addDetected: 'リストに追加',
+        close: '閉じる',
+        retake: '再撮影',
+        noCodeFound: 'コードが見つかりませんでした'
+      },
+      en: {
+        titlePass: 'Enter Password',
+        placeholderPass: 'Enter password',
+        toLogin: 'Go to Login',
+        loginTitle: 'Login',
+        checklistTitle: 'Checklist',
+        checkedTitle: 'Checked Items',
+        wrongPass: 'Incorrect password',
+        add: 'Add',
+        ocrBtn: 'Add via OCR (Camera)',
+        ocrUpload: 'OCR from Image',
+        capture: 'Capture',
+        cropConfirm: 'Confirm Crop',
+        addDetected: 'Add to List',
+        close: 'Close',
+        retake: 'Retake',
+        noCodeFound: 'No codes found'
+      }
+    }
+
+    function applyLang(){
+      document.getElementById('title').textContent = T[lang].titlePass;
+      document.getElementById('passwordInput').placeholder = T[lang].placeholderPass;
+      document.getElementById('passwordSubmit').textContent = (lang==='ja')? 'ログイン' : 'Login';
+      document.getElementById('toLogin').textContent = T[lang].toLogin;
+      document.getElementById('loginSubmit').textContent = (lang==='ja')? 'ログイン' : 'Login';
+      document.getElementById('addProductBtn').textContent = T[lang].add;
+      document.getElementById('ocrStartBtn').textContent = T[lang].ocrBtn;
+      document.getElementById('ocrUploadBtn').textContent = T[lang].ocrUpload;
+      document.getElementById('captureBtn').textContent = T[lang].capture;
+      document.getElementById('doCropBtn').textContent = T[lang].cropConfirm;
+      document.getElementById('addDetectedBtn').textContent = T[lang].addDetected;
+      document.getElementById('retakeBtn').textContent = T[lang].retake;
+      document.getElementById('ocrCloseBtn').textContent = T[lang].close;
+      document.getElementById('passwordError').textContent = T[lang].wrongPass;
+      document.getElementById('checklistTitle').textContent = T[lang].checklistTitle;
+      document.getElementById('checkedTitle').textContent = T[lang].checkedTitle;
+    }
+
+    document.getElementById('langBtn').addEventListener('click', ()=>{ lang = (lang==='ja')?'en':'ja'; applyLang(); })
+    applyLang()
+
+    // -------------------- Page navigation --------------------
+    const pages = {
+      pass: document.getElementById('page-password'),
+      login: document.getElementById('page-login'),
+      checklist: document.getElementById('page-checklist'),
+      checked: document.getElementById('page-checked')
+    }
+    function show(page){
+      Object.values(pages).forEach(p=>p.classList.remove('active'));
+      pages[page].classList.add('active');
+      // update header title
+      const titleMap = { pass: (lang==='ja'?T[lang].titlePass:T[lang].titlePass), login: T[lang].loginTitle, checklist: T[lang].checklistTitle, checked: T[lang].checkedTitle }
+      document.getElementById('title').textContent = titleMap[page]
+    }
+
+    document.getElementById('navPass').onclick = ()=> show('pass')
+    document.getElementById('navLogin2').onclick = ()=> show('login')
+    document.getElementById('navChecklist').onclick = ()=> show('checklist')
+    document.getElementById('navChecked').onclick = ()=> show('checked')
+    document.getElementById('toLogin').onclick = ()=> show('login')
+    document.getElementById('backToPass').onclick = ()=> show('pass')
+
+    // -------------------- Password & Login --------------------
+    document.getElementById('passwordSubmit').onclick = ()=>{
+      const v = document.getElementById('passwordInput').value
+      if(v === SITE_PASSWORD){
+        document.getElementById('passwordError').style.display='none'
+        show('login')
+      } else {
+        document.getElementById('passwordError').style.display='block'
+        setTimeout(()=>document.getElementById('passwordError').style.display='none',2000)
+      }
+    }
+
+    document.getElementById('loginSubmit').onclick = ()=>{
+      const id = document.getElementById('userIdInput').value.trim()
+      if(!id) return alert((lang==='ja')? 'IDを入力してください' : 'Please enter ID')
+      localStorage.setItem('indent:user', id)
+      show('checklist')
+      loadData()
+    }
+
+    // -------------------- Data storage --------------------
+    let checklist = JSON.parse(localStorage.getItem('indent:checklist')||'[]')
+    let checkedList = JSON.parse(localStorage.getItem('indent:checked')||'[]')
+
+    function saveData(){
+      localStorage.setItem('indent:checklist', JSON.stringify(checklist))
+      localStorage.setItem('indent:checked', JSON.stringify(checkedList))
+    }
+
+    function renderLists(){
+      const checklistEl = document.getElementById('checklist')
+      const checkedEl = document.getElementById('checkedList')
+      checklistEl.innerHTML=''
+      checklist.forEach((it, idx)=>{
+        const div = document.createElement('div'); div.className='list-item'
+        div.innerHTML = `<div><strong>${it.code}</strong><div class='small'>数量：${it.qty}</div></div>`
+        const controls = document.createElement('div')
+        const qtyInput = document.createElement('input'); qtyInput.type='number'; qtyInput.min=1; qtyInput.value=1; qtyInput.style.width='80px'
+        const checkBtn = document.createElement('button'); checkBtn.textContent = (lang==='ja')? 'チェック' : 'Check'
+        checkBtn.onclick = ()=>{
+          const n = Number(qtyInput.value)||1
+          if(n > it.qty){ alert((lang==='ja')? 'エラー：個数が多すぎます' : 'Error: too many items'); return }
+          // reduce qty or move
+          it.qty -= n
+          const existing = checkedList.find(x=>x.code===it.code)
+          if(existing) existing.qty += n; else checkedList.push({code:it.code, qty:n})
+          if(it.qty <= 0) checklist.splice(idx,1)
+          saveData(); renderLists()
+        }
+        controls.appendChild(qtyInput); controls.appendChild(checkBtn)
+        div.appendChild(controls)
+        checklistEl.appendChild(div)
+      })
+
+      checkedEl.innerHTML=''
+      checkedList.forEach(it=>{
+        const div = document.createElement('div'); div.className='list-item'; div.textContent = `${it.code} ×${it.qty}`; checkedEl.appendChild(div)
+      })
+    }
+
+    document.getElementById('addProductBtn').onclick = ()=>{
+      const code = document.getElementById('productCodeInput').value.trim()
+      const qty = Number(document.getElementById('productQtyInput').value) || 1
+      if(!/^\d{7}$/.test(code)){ alert((lang==='ja')? '7桁のコードを入力してください' : 'Enter a 7-digit code'); return }
+      const ex = checklist.find(i=>i.code===code)
+      if(ex) ex.qty += qty; else checklist.push({code, qty})
+      saveData(); renderLists(); document.getElementById('productCodeInput').value=''
+    }
+
+    function loadData(){ checklist = JSON.parse(localStorage.getItem('indent:checklist')||'[]'); checkedList = JSON.parse(localStorage.getItem('indent:checked')||'[]'); renderLists() }
+
+    // -------------------- OCR workflow (camera & cropper & tesseract) --------------------
+    const ocrModal = document.getElementById('ocrModal')
+    const video = document.getElementById('video')
+    const captureBtn = document.getElementById('captureBtn')
+    const closeCamera = document.getElementById('closeCamera')
+    const cropImage = document.getElementById('cropImage')
+    const cropMode = document.getElementById('cropMode')
+    const cameraMode = document.getElementById('cameraMode')
+    const cropperOptions = { viewMode: 1, autoCropArea: 1 }
+    let stream = null
+    let cropper = null
+
+    async function openCamera(){
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+        video.srcObject = stream
+        await video.play()
+        ocrModal.style.display = 'flex'
+        cameraMode.style.display='block'; cropMode.style.display='none'; document.getElementById('ocrResultArea').style.display='none'
+      }catch(e){ alert((lang==='ja')? 'カメラが利用できません' : 'Camera not available') }
+    }
+
+    function closeModal(){
+      ocrModal.style.display='none'
+      if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null }
+      if(cropper){ cropper.destroy(); cropper=null }
+      cropImage.src = ''
+    }
+
+    captureBtn.addEventListener('click', ()=>{
+      // capture current video frame to image
+      const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d'); ctx.drawImage(video,0,0)
+      const dataUrl = canvas.toDataURL('image/png')
+      // stop camera
+      if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null }
+      video.pause(); video.srcObject = null
+      // show crop UI
+      cropImage.src = dataUrl
+      cameraMode.style.display='none'; cropMode.style.display='block'; document.getElementById('ocrResultArea').style.display='none'
+      // init cropper
+      if(cropper) cropper.destroy();
+      cropper = new Cropper(cropImage, cropperOptions)
+    })
+
+    closeCamera.addEventListener('click', ()=>{ closeModal() })
+
+    document.getElementById('retakeBtn').addEventListener('click', ()=>{
+      if(cropper){ cropper.destroy(); cropper=null }
+      cropImage.src = ''
+      cameraMode.style.display='block'; cropMode.style.display='none'; document.getElementById('ocrResultArea').style.display='none'
+      openCamera()
+    })
+
+    document.getElementById('doCropBtn').addEventListener('click', async ()=>{
+      if(!cropper) return
+      const canvas = cropper.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1600 })
+      const dataUrl = canvas.toDataURL('image/png')
+      // show OCR progress
+      cropMode.style.display='none'
+      const area = document.getElementById('ocrResultArea'); area.style.display='block'
+      document.getElementById('ocrText').value = (lang==='ja')? '読み取り中...' : 'Recognizing...'
+      // run Tesseract
+      try{
+        const worker = Tesseract.createWorker({ logger: m => console.log(m) })
+        await worker.load(); await worker.loadLanguage('eng+jpn'); await worker.initialize('eng+jpn')
+        const { data } = await worker.recognize(dataUrl)
+        await worker.terminate()
+        const text = data.text || ''
+        document.getElementById('ocrText').value = text
+        // find 7-digit numbers
+        const found = text.match(/\d{7}/g) || []
+        const sel = document.getElementById('detectedCodes'); sel.innerHTML=''
+        if(found.length===0){
+          const opt = document.createElement('option'); opt.value=''; opt.textContent = (lang==='ja')? T[lang].noCodeFound : T[lang].noCodeFound; sel.appendChild(opt)
+        } else {
+          // unique
+          const uniq = [...new Set(found)]
+          uniq.forEach(code=>{ const opt = document.createElement('option'); opt.value=code; opt.textContent=code; sel.appendChild(opt) })
+        }
+      }catch(e){ document.getElementById('ocrText').value = 'OCR error: '+e.message }
+    })
+
+    document.getElementById('ocrCloseBtn').addEventListener('click', ()=>{ closeModal() })
+
+    document.getElementById('ocrStartBtn').addEventListener('click', ()=>{ openCamera() })
+
+    // allow uploading image for OCR as alternative
+    document.getElementById('ocrUploadBtn').addEventListener('click', ()=>{
+      const input = document.createElement('input'); input.type='file'; input.accept='image/*'; input.onchange = e => {
+        const f = e.target.files[0]; if(!f) return
+        const fr = new FileReader(); fr.onload = ()=>{
+          cropImage.src = fr.result
+          ocrModal.style.display='flex'
+          cameraMode.style.display='none'; cropMode.style.display='block'; document.getElementById('ocrResultArea').style.display='none'
+          if(cropper) cropper.destroy()
+          cropper = new Cropper(cropImage, cropperOptions)
+        }
+        fr.readAsDataURL(f)
+      }; input.click()
+    })
+
+    document.getElementById('addDetectedBtn').addEventListener('click', ()=>{
+      const sel = document.getElementById('detectedCodes')
+      const code = sel.value
+      if(!/^\d{7}$/.test(code)) return alert((lang==='ja')? '有効な7桁が選択されていません' : 'No valid 7-digit code selected')
+      const qty = Number(document.getElementById('detectedQty').value) || 1
+      const ex = checklist.find(i=>i.code===code)
+      if(ex) ex.qty += qty; else checklist.push({code, qty})
+      saveData(); renderLists(); closeModal()
+    })
+
+    // -------------------- init --------------------
+    loadData()
+    applyLang()
+  </script>
+</body>
+</html>
