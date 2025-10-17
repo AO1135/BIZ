@@ -68,7 +68,6 @@ nav button:last-child { border-right:none; }
 <div class="modalContent">
 <h3 id="groupModalTitle">グループ名を入力</h3>
 <input id="groupNameInput" placeholder="例：棚A" style="margin-bottom:6px;"/>
-<div id="groupSelectList" style="max-height:200px; overflow:auto; margin-bottom:6px;"></div>
 <button id="saveGroupBtn">作成</button>
 <button id="cancelGroupBtn">キャンセル</button>
 </div>
@@ -84,15 +83,15 @@ nav button:last-child { border-right:none; }
 </nav>
 
 <script>
-const PASSWORD = "letmein123";
+const PASSWORD="letmein123";
 let currentPage="page-password";
 let lang="ja";
-let checklist = JSON.parse(localStorage.getItem("indent:checklist")||"[]");
-let checkedList = JSON.parse(localStorage.getItem("indent:checkedList")||"[]");
+let checklist=JSON.parse(localStorage.getItem("indent:checklist")||"[]");
+let checkedList=JSON.parse(localStorage.getItem("indent:checkedList")||"[]");
 
-const texts = {
-  ja: { password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト", add:"追加", groupModal:"グループ名を入力", createGroup:"＋グループ作成" },
-  en: { password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items", add:"Add", groupModal:"Enter group name", createGroup:"＋Create Group" }
+const texts={
+  ja:{ password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト", add:"追加", groupModal:"グループ名を入力", createGroup:"＋グループ作成" },
+  en:{ password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items", add:"Add", groupModal:"Enter group name", createGroup:"＋Create Group" }
 };
 
 // --- ページ表示 ---
@@ -142,30 +141,23 @@ function renderLists(){
   const checkedListEl=document.getElementById("checkedList");
   checklistEl.innerHTML="";
 
-  // グループなしのリスト
   checklist.forEach((item,i)=>{
     const div=document.createElement("div");
     div.className="list-item";
     div.innerHTML=`<input type="checkbox" data-i="${i}" style="margin-right:6px;"/>
-    <span>${item.code}</span>
-    <input type="number" min="1" value="${item.qty}" data-i="${i}" class="qtyInput"/>
-    <input class="memoInput" type="text" placeholder="メモ" value="${item.memo||''}" data-i="${i}"/>
-    <button class="copyBtn" data-code="${item.code}">コピー</button>
-    <button class="checkBtn" data-i="${i}">✔</button>`;
+      <span>${item.code}</span>
+      <input type="number" min="1" value="${item.qty}" data-i="${i}" class="qtyInput"/>
+      <input class="memoInput" type="text" placeholder="メモ" value="${item.memo||''}" data-i="${i}"/>
+      <button class="copyBtn" data-code="${item.code}">コピー</button>
+      <button class="checkBtn" data-i="${i}">✔</button>`;
     checklistEl.appendChild(div);
   });
 
   document.querySelectorAll(".qtyInput").forEach(inp=>{
-    inp.onchange=(e)=>{
-      const i=e.target.dataset.i;
-      checklist[i].qty=Number(e.target.value)||1; saveData();
-    };
+    inp.onchange=(e)=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); };
   });
   document.querySelectorAll(".memoInput").forEach(inp=>{
-    inp.oninput=(e)=>{
-      const i=e.target.dataset.i;
-      checklist[i].memo=e.target.value; saveData();
-    };
+    inp.oninput=(e)=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); };
   });
   document.querySelectorAll(".copyBtn").forEach(btn=>{
     btn.onclick=()=>{ navigator.clipboard.writeText(btn.dataset.code); alert(lang==="ja"?"コピーしました":"Copied"); };
@@ -201,17 +193,4 @@ document.getElementById("addProductBtn").onclick=()=>{
 document.getElementById("ocrCaptureBtn").onclick=()=>document.getElementById("ocrInput").click();
 document.getElementById("ocrInput").onchange=async(e)=>{
   const file=e.target.files[0]; if(!file) return;
-  const result=await Tesseract.recognize(file,"eng",{tessedit_char_whitelist:"0123456789"});
-  const found=result.data.text.match(/\d{7}/g);
-  if(found&&found.length>0){
-    found.forEach(num=>checklist.push({code:num,qty:1,memo:""}));
-    saveData(); renderLists();
-    alert(`${found.length}件のコードを追加しました`);
-  } else alert(lang==="ja"?"7桁コードを検出できませんでした":"No 7 digits code found");
-};
-
-// --- グループ作成モーダル ---
-const groupModal=document.getElementById("groupModal");
-document.getElementById("createGroupBtn").onclick=()=>{
-  // チェックされた商品だけ表示
-  const selected=checklist.map((item,i)=>({
+  const result=await Tesseract.recognize(file,"eng",{tess
