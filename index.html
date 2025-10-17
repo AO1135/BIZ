@@ -19,7 +19,6 @@ nav button:last-child { border-right:none; }
 .list-item input[type="number"] { width:70px; }
 .list-item input.memoInput { width:100px; }
 .copyBtn { background:#fff; color:#000; border:1px solid #000; }
-#cropCanvas { border:1px solid #000; max-width:100%; display:none; touch-action:none; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
@@ -52,7 +51,6 @@ nav button:last-child { border-right:none; }
 <button type="button" id="ocrCaptureBtn">📷 OCRで追加</button>
 <input type="file" id="ocrInput" accept="image/*" capture="environment" class="hidden" />
 </div>
-<canvas id="cropCanvas"></canvas>
 <div id="checklist"></div>
 <button type="button" id="resetChecklistBtn" style="margin-top:8px;">チェック待ちリストをリセット</button>
 <button type="button" id="resetAllBtn" style="margin-top:8px;">全データをリセット</button>
@@ -175,4 +173,10 @@ document.getElementById("resetCheckedBtn").addEventListener("click",()=>{ if(!is
 document.getElementById("resetAllBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checklist=[]; checkedList=[]; saveData(); renderLists(); });
 
 // --- ナビゲーション ---
-document.getElementById("navChecklist").addEventListener("click",
+document.getElementById("navChecklist").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checklist"); });
+document.getElementById("navChecked").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checked"); });
+
+});
+</script>
+</body>
+</html>
