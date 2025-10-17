@@ -111,6 +111,9 @@ decide:"Decide selected items"
 };
 
 function showPage(id){
+  if(!isPasswordOk || !isLoginOk){
+    if(id!=="page-password" && id!=="page-login") return alert(texts[lang].passFirst);
+  }
   ["page-password","page-login","page-checklist","page-ready","page-checked"].forEach(p=>document.getElementById(p).classList.add("hidden"));
   document.getElementById(id).classList.remove("hidden");
   if(id!=="page-password" && id!=="page-login") document.getElementById("title").textContent=texts[lang][id.replace("page-","")]||"";
@@ -183,7 +186,9 @@ function renderLists(){
   readyList.forEach((item,i)=>{
     const div=document.createElement("div");
     div.className="list-item";
-    div.innerHTML=`<span>${item.code}</span> <input type="number" min="1" value="${item.qty}" data-i="${i}" class="readyQty"/>
+    div.innerHTML=`<span>${item.code}</span>
+      <input type="number" min="1" value="${item.qty}" data-i="${i}" class="readyQty"/>
+      <input class="memoInput" type="text" value="${item.memo||''}" data-i="${i}"/>
       <button type="button" class="checkBtn" data-i="${i}">✔</button>`;
     readyEl.appendChild(div);
   });
@@ -200,6 +205,7 @@ function renderLists(){
   });
 
   document.querySelectorAll(".readyQty").forEach(inp=>{ inp.onchange=e=>{ readyList[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); renderLists(); }; });
+  document.querySelectorAll("#readyList .memoInput").forEach(inp=>{ inp.oninput=e=>{ readyList[e.target.dataset.i].memo=e.target.value; saveData(); }; });
 
   // チェック済み
   const checkedEl=document.getElementById("checkedList");
@@ -222,7 +228,6 @@ document.getElementById("decideBtn").addEventListener("click",()=>{
     const i=cb.dataset.i;
     readyList.push({...checklist[i]});
   });
-  // 選択分を削除
   checklist=checklist.filter((item,i)=>!document.querySelector(`.selectItem[data-i="${i}"]`).checked);
   saveData(); renderLists();
 });
