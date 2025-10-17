@@ -19,28 +19,27 @@ nav button:last-child { border-right:none; }
 .list-item input[type="number"] { width:70px; }
 .list-item input.memoInput { width:100px; }
 .copyBtn { background:#fff; color:#000; border:1px solid #000; }
-.groupTitle { font-weight:bold; border-bottom:1px solid #000; margin-top:12px; cursor:pointer; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 <header>
 <h1 id="title">パスワード入力</h1>
-<button id="langBtn">日本語 / English</button>
+<button type="button" id="langBtn">日本語 / English</button>
 </header>
 
 <main>
 <!-- パスワードページ -->
 <section id="page-password">
 <input id="passwordInput" type="password" placeholder="パスワードを入力" />
-<button id="passwordSubmit">ログイン</button>
+<button type="button" id="passwordSubmit">ログイン</button>
 <p id="passwordError" style="color:red;display:none">パスワードが違います</p>
 </section>
 
 <!-- ログインページ -->
 <section id="page-login" class="hidden">
 <input id="userIdInput" placeholder="ユーザーIDを入力" />
-<button id="loginSubmit">ログイン</button>
+<button type="button" id="loginSubmit">ログイン</button>
 </section>
 
 <!-- チェック待ちリストページ -->
@@ -49,31 +48,30 @@ nav button:last-child { border-right:none; }
 <div style="display:flex;gap:8px;margin-bottom:8px;">
 <input id="productCodeInput" placeholder="7桁のコード" />
 <input id="productQtyInput" type="number" min="1" value="1" />
-<button id="addProductBtn">追加</button>
+<button type="button" id="addProductBtn">追加</button>
 </div>
 <div style="margin-bottom:8px;">
-<button id="ocrCaptureBtn">📷 OCRで追加</button>
+<button type="button" id="ocrCaptureBtn">📷 OCRで追加</button>
 <input type="file" id="ocrInput" accept="image/*" capture="environment" class="hidden" />
 </div>
 <div id="checklist"></div>
-<button id="resetChecklistBtn" style="margin-top:8px;">チェック待ちリストをリセット</button>
-<button id="resetAllBtn" style="margin-top:8px;">全データをリセット</button>
+<button type="button" id="resetChecklistBtn" style="margin-top:8px;">チェック待ちリストをリセット</button>
+<button type="button" id="resetAllBtn" style="margin-top:8px;">全データをリセット</button>
 </section>
 
 <!-- チェック済みリストページ -->
 <section id="page-checked" class="hidden">
 <h2 id="checkedTitle">チェック済みリスト</h2>
 <div id="checkedList"></div>
-<button id="resetCheckedBtn" style="margin-top:8px;">チェック済みリストをリセット</button>
+<button type="button" id="resetCheckedBtn" style="margin-top:8px;">チェック済みリストをリセット</button>
 </section>
-
 </main>
 
 <nav>
-<button id="navPassword">🔑</button>
-<button id="navLogin">👤</button>
-<button id="navChecklist">📋</button>
-<button id="navChecked">✅</button>
+<button type="button" id="navPassword">🔑</button>
+<button type="button" id="navLogin">👤</button>
+<button type="button" id="navChecklist">📋</button>
+<button type="button" id="navChecked">✅</button>
 </nav>
 
 <script>
@@ -141,15 +139,31 @@ function renderLists(){
     div.innerHTML=`<span>${item.code}</span>
     <input type="number" min="1" value="${item.qty}" data-i="${i}" class="qtyInput"/>
     <input class="memoInput" type="text" placeholder="メモ" value="${item.memo||''}" data-i="${i}"/>
-    <button class="copyBtn" data-code="${item.code}">コピー</button>
-    <button class="checkBtn" data-i="${i}">✔</button>`;
+    <button type="button" class="copyBtn" data-code="${item.code}">コピー</button>
+    <button type="button" class="checkBtn" data-i="${i}">✔</button>`;
     checklistEl.appendChild(div);
   });
 
-  document.querySelectorAll(".qtyInput").forEach(inp=>{inp.onchange=e=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); }; });
-  document.querySelectorAll(".memoInput").forEach(inp=>{inp.oninput=e=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); }; });
-  document.querySelectorAll(".copyBtn").forEach(btn=>{ btn.onclick=()=>{ navigator.clipboard.writeText(btn.dataset.code); alert(lang==="ja"?"コピーしました":"Copied"); }; });
-  document.querySelectorAll(".checkBtn").forEach(btn=>{ btn.onclick=()=>{ const i=btn.dataset.i; checkedList.push(checklist[i]); checklist.splice(i,1); saveData(); renderLists(); }; });
+  // --- イベント委譲 ---
+  checklistEl.addEventListener("click",function(e){
+    if(e.target.classList.contains("checkBtn")){
+      const i = e.target.dataset.i;
+      checkedList.push(checklist[i]);
+      checklist.splice(i,1);
+      saveData(); renderLists();
+    }
+    if(e.target.classList.contains("copyBtn")){
+      navigator.clipboard.writeText(e.target.dataset.code);
+      alert(lang==="ja"?"コピーしました":"Copied");
+    }
+  });
+
+  document.querySelectorAll(".qtyInput").forEach(inp=>{
+    inp.onchange=e=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); };
+  });
+  document.querySelectorAll(".memoInput").forEach(inp=>{
+    inp.oninput=e=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); };
+  });
 
   checkedListEl.innerHTML="";
   checkedList.forEach(item=>{
@@ -177,8 +191,7 @@ document.getElementById("resetChecklistBtn").onclick=()=>{ checklist=[]; saveDat
 document.getElementById("resetCheckedBtn").onclick=()=>{ checkedList=[]; saveData(); renderLists(); };
 document.getElementById("resetAllBtn").onclick=()=>{ checklist=[]; checkedList=[]; localStorage.clear(); renderLists(); };
 
+});
 </script>
 </body>
 </html>
-
-
