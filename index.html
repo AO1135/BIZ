@@ -85,29 +85,23 @@ let currentPage="page-password";
 let lang="ja";
 let checklist=JSON.parse(localStorage.getItem("indent:checklist")||"[]");
 let checkedList=JSON.parse(localStorage.getItem("indent:checkedList")||"[]");
-let tempAdd=[]; // OCR・手入力の一時保留
+let tempAdd=[];
 let isPasswordOk=false;
 let isLoginOk=false;
 
-// --- テキスト ---
 const texts={
-ja:{
-password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト",
+ja:{password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト",
 add:"追加", enterID:"IDを入力してください", passFirst:"パスワードを先に突破してください",
 code7:"7桁のコードを入力してください", copied:"コピーしました", ocrAdded:"OCRで追加しました",
 resetChecklist:"チェック待ちリストをリセット", resetChecked:"チェック済みリストをリセット", resetAll:"全データをリセット",
-groupAssign:"選択商品をグループ分け", confirmTemp:"追加を確定"
-},
-en:{
-password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items",
+groupAssign:"選択商品をグループ分け", confirmTemp:"追加を確定"},
+en:{password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items",
 add:"Add", enterID:"Please enter ID", passFirst:"Please enter password first",
 code7:"Please enter 7 digits code", copied:"Copied", ocrAdded:"Added via OCR",
 resetChecklist:"Reset Checklist", resetChecked:"Reset Checked", resetAll:"Reset All",
-groupAssign:"Assign selected items to group", confirmTemp:"Confirm addition"
-}
+groupAssign:"Assign selected items to group", confirmTemp:"Confirm addition"}
 };
 
-// --- ページ切替 ---
 function showPage(id){ 
   ["page-password","page-login","page-checklist","page-checked"].forEach(p=>document.getElementById(p).classList.add("hidden"));
   document.getElementById(id).classList.remove("hidden");
@@ -116,7 +110,6 @@ function showPage(id){
   updateButtonTexts();
 }
 
-// --- 言語切替 ---
 function updateButtonTexts(){
   document.getElementById("addProductBtn").textContent=texts[lang].add;
   document.getElementById("resetChecklistBtn").textContent=texts[lang].resetChecklist;
@@ -131,14 +124,12 @@ document.getElementById("langBtn").addEventListener("click",()=>{
   showPage(currentPage);
 });
 
-// --- パスワード ---
 document.getElementById("passwordSubmit").addEventListener("click",()=>{
   const val=document.getElementById("passwordInput").value;
   if(val===PASSWORD){ isPasswordOk=true; showPage("page-login"); }
   else{ let err=document.getElementById("passwordError"); err.style.display="block"; setTimeout(()=>err.style.display="none",2000);}
 });
 
-// --- ログイン ---
 document.getElementById("loginSubmit").addEventListener("click",()=>{
   if(!isPasswordOk) return alert(texts[lang].passFirst);
   const id=document.getElementById("userIdInput").value.trim();
@@ -148,10 +139,8 @@ document.getElementById("loginSubmit").addEventListener("click",()=>{
   showPage("page-checklist");
 });
 
-// --- 保存 ---
 function saveData(){ localStorage.setItem("indent:checklist",JSON.stringify(checklist)); localStorage.setItem("indent:checkedList",JSON.stringify(checkedList)); }
 
-// --- チェック済みまとめ ---
 function getCheckedSummary(){
   const summary={};
   checkedList.forEach(item=>{
@@ -161,7 +150,6 @@ function getCheckedSummary(){
   return summary;
 }
 
-// --- リスト描画 ---
 function renderLists(){
   const checklistEl=document.getElementById("checklist");
   const checkedListEl=document.getElementById("checkedList");
@@ -183,10 +171,13 @@ function renderLists(){
     if(target.classList.contains("checkBtn")){
       const i=target.dataset.i;
       const item=checklist[i];
+      if(item.qty<1) return;
+      // 数量1だけチェック済みに移動
       checkedList.push({code:item.code,qty:1,memo:item.memo,group:item.group});
-      if(item.qty>1) item.qty--;
-      else checklist.splice(i,1);
-      saveData(); renderLists();
+      item.qty -=1;
+      if(item.qty===0) checklist.splice(i,1);
+      saveData();
+      renderLists();
     }
     if(target.classList.contains("copyBtn")){
       navigator.clipboard.writeText(target.dataset.code);
@@ -197,7 +188,6 @@ function renderLists(){
   document.querySelectorAll(".qtyInput").forEach(inp=>{ inp.onchange=e=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); }; });
   document.querySelectorAll(".memoInput").forEach(inp=>{ inp.oninput=e=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); }; });
 
-  // --- チェック済みリストまとめ描画 ---
   checkedListEl.innerHTML="";
   const summary=getCheckedSummary();
   Object.keys(summary).forEach(code=>{
@@ -210,12 +200,12 @@ function renderLists(){
 
 renderLists();
 
-// --- 一括グループ分け ---
+// --- グループ分け ---
 document.getElementById("groupAssignBtn").addEventListener("click",()=>{
   const groupName=document.getElementById("groupNameInput").value.trim();
   if(!groupName) return alert("グループ名を入力してください");
-  document.querySelectorAll(".selectItem:checked").forEach(checkbox=>{
-    const i=checkbox.dataset.i;
+  document.querySelectorAll(".selectItem:checked").forEach(cb=>{
+    const i=cb.dataset.i;
     checklist[i].group=groupName;
   });
   saveData(); renderLists();
