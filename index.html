@@ -136,7 +136,10 @@ function renderLists(){
   checklistEl.addEventListener("click", function(e){
     const target = e.target;
     if(target.classList.contains("checkBtn")){
-      const i=target.dataset.i; checkedList.push(checklist[i]); checklist.splice(i,1); saveData(); renderLists();
+      const i=target.dataset.i;
+      if(checklist[i].qty>1){ checklist[i].qty--; checkedList.push({code:checklist[i].code,qty:1,memo:checklist[i].memo}); }
+      else{ checkedList.push(checklist[i]); checklist.splice(i,1); }
+      saveData(); renderLists();
     }
     if(target.classList.contains("copyBtn")){
       navigator.clipboard.writeText(target.dataset.code);
@@ -167,6 +170,23 @@ document.getElementById("addProductBtn").addEventListener("click",()=>{
   checklist.push({code,qty,memo:""}); saveData(); renderLists(); document.getElementById("productCodeInput").value="";
 });
 
+// --- OCR ---
+const ocrBtn=document.getElementById("ocrCaptureBtn");
+const ocrInput=document.getElementById("ocrInput");
+ocrBtn.addEventListener("click",()=>ocrInput.click());
+
+ocrInput.addEventListener("change",async(e)=>{
+  if(!isLoginOk) return alert(texts[lang].passFirst);
+  const file=e.target.files[0];
+  if(!file) return;
+  const { data: { text } } = await Tesseract.recognize(file, 'eng');
+  const codes=text.match(/\b\d{7}\b/g);
+  if(codes) codes.forEach(code=>checklist.push({code,qty:1,memo:""}));
+  saveData(); renderLists();
+  alert(texts[lang].ocrAdded);
+  ocrInput.value="";
+});
+
 // --- リセット ---
 document.getElementById("resetChecklistBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checklist=[]; saveData(); renderLists(); });
 document.getElementById("resetCheckedBtn").addEventListener("click",()=>{ if(!isLoginOk) return; checkedList=[]; saveData(); renderLists(); });
@@ -176,7 +196,6 @@ document.getElementById("resetAllBtn").addEventListener("click",()=>{ if(!isLogi
 document.getElementById("navChecklist").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checklist"); });
 document.getElementById("navChecked").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checked"); });
 
-});
 </script>
 </body>
 </html>
