@@ -47,13 +47,15 @@ nav button:last-child { border-right:none; }
 <input id="productQtyInput" type="number" min="1" value="1" />
 <button type="button" id="addProductBtn">追加</button>
 </div>
-<div style="margin-bottom:8px;">
+<div style="display:flex;gap:8px;margin-bottom:8px;">
 <button type="button" id="ocrCaptureBtn">📷 OCRで追加</button>
 <input type="file" id="ocrInput" accept="image/*" capture="environment" class="hidden" />
 </div>
 <div id="checklist"></div>
-<button type="button" id="resetChecklistBtn" style="margin-top:8px;">チェック待ちリストをリセット</button>
-<button type="button" id="resetAllBtn" style="margin-top:8px;">全データをリセット</button>
+<div style="display:flex;gap:8px;margin-top:8px;">
+<button type="button" id="resetChecklistBtn">チェック待ちリストをリセット</button>
+<button type="button" id="resetAllBtn">全データをリセット</button>
+</div>
 </section>
 
 <section id="page-checked" class="hidden">
@@ -81,8 +83,18 @@ let isLoginOk=false;
 
 // --- テキスト ---
 const texts={
-ja:{ password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト", add:"追加", enterID:"IDを入力してください", passFirst:"パスワードを先に突破してください", code7:"7桁のコードを入力してください", copied:"コピーしました", ocrAdded:"OCRで追加しました" },
-en:{ password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items", add:"Add", enterID:"Please enter ID", passFirst:"Please enter password first", code7:"Please enter 7 digits code", copied:"Copied", ocrAdded:"Added via OCR" }
+ja:{
+password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト",
+add:"追加", enterID:"IDを入力してください", passFirst:"パスワードを先に突破してください",
+code7:"7桁のコードを入力してください", copied:"コピーしました", ocrAdded:"OCRで追加しました",
+resetChecklist:"チェック待ちリストをリセット", resetChecked:"チェック済みリストをリセット", resetAll:"全データをリセット"
+},
+en:{
+password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items",
+add:"Add", enterID:"Please enter ID", passFirst:"Please enter password first",
+code7:"Please enter 7 digits code", copied:"Copied", ocrAdded:"Added via OCR",
+resetChecklist:"Reset Checklist", resetChecked:"Reset Checked", resetAll:"Reset All"
+}
 };
 
 // --- ページ切替 ---
@@ -91,10 +103,21 @@ function showPage(id){
   document.getElementById(id).classList.remove("hidden");
   currentPage=id;
   if(id!=="page-password" && id!=="page-login") document.getElementById("title").textContent=texts[lang][id.replace("page-","")];
+  updateButtonTexts();
 }
 
 // --- 言語切替 ---
-document.getElementById("langBtn").addEventListener("click",()=>{ lang=(lang==="ja"?"en":"ja"); showPage(currentPage); });
+function updateButtonTexts(){
+  document.getElementById("addProductBtn").textContent=texts[lang].add;
+  document.getElementById("resetChecklistBtn").textContent=texts[lang].resetChecklist;
+  document.getElementById("resetCheckedBtn").textContent=texts[lang].resetChecked;
+  document.getElementById("resetAllBtn").textContent=texts[lang].resetAll;
+}
+
+document.getElementById("langBtn").addEventListener("click",()=>{
+  lang=(lang==="ja"?"en":"ja");
+  showPage(currentPage);
+});
 
 // --- パスワード ---
 document.getElementById("passwordSubmit").addEventListener("click",()=>{
@@ -196,6 +219,7 @@ document.getElementById("resetAllBtn").addEventListener("click",()=>{ if(!isLogi
 document.getElementById("navChecklist").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checklist"); });
 document.getElementById("navChecked").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checked"); });
 
+});
 </script>
 </body>
 </html>
