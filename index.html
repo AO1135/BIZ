@@ -139,6 +139,16 @@ document.getElementById("loginSubmit").addEventListener("click",()=>{
 // --- 保存 ---
 function saveData(){ localStorage.setItem("indent:checklist",JSON.stringify(checklist)); localStorage.setItem("indent:checkedList",JSON.stringify(checkedList)); }
 
+// --- チェック済みまとめ ---
+function getCheckedSummary(){
+  const summary={};
+  checkedList.forEach(item=>{
+    if(summary[item.code]) summary[item.code].qty+=item.qty;
+    else summary[item.code]={qty:item.qty,memo:item.memo||""};
+  });
+  return summary;
+}
+
 // --- リスト描画 ---
 function renderLists(){
   const checklistEl=document.getElementById("checklist");
@@ -160,8 +170,13 @@ function renderLists(){
     const target = e.target;
     if(target.classList.contains("checkBtn")){
       const i=target.dataset.i;
-      if(checklist[i].qty>1){ checklist[i].qty--; checkedList.push({code:checklist[i].code,qty:1,memo:checklist[i].memo}); }
-      else{ checkedList.push(checklist[i]); checklist.splice(i,1); }
+      if(checklist[i].qty>1){
+        checklist[i].qty--;
+        checkedList.push({code:checklist[i].code,qty:1,memo:checklist[i].memo});
+      } else {
+        checkedList.push(checklist[i]);
+        checklist.splice(i,1);
+      }
       saveData(); renderLists();
     }
     if(target.classList.contains("copyBtn")){
@@ -173,11 +188,13 @@ function renderLists(){
   document.querySelectorAll(".qtyInput").forEach(inp=>{ inp.onchange=e=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); }; });
   document.querySelectorAll(".memoInput").forEach(inp=>{ inp.oninput=e=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); }; });
 
+  // --- チェック済みリストまとめ描画 ---
   checkedListEl.innerHTML="";
-  checkedList.forEach(item=>{
+  const summary=getCheckedSummary();
+  Object.keys(summary).forEach(code=>{
     const div=document.createElement("div");
     div.className="list-item";
-    div.textContent=`${item.code} ×${item.qty} ${item.memo?('('+item.memo+')'):""}`;
+    div.textContent=`${code} ×${summary[code].qty} ${summary[code].memo?('('+summary[code].memo+')'):""}`;
     checkedListEl.appendChild(div);
   });
 }
@@ -197,12 +214,10 @@ document.getElementById("addProductBtn").addEventListener("click",()=>{
 const ocrBtn=document.getElementById("ocrCaptureBtn");
 const ocrInput=document.getElementById("ocrInput");
 ocrBtn.addEventListener("click",()=>ocrInput.click());
-
 ocrInput.addEventListener("change",async(e)=>{
   if(!isLoginOk) return alert(texts[lang].passFirst);
-  const file=e.target.files[0];
-  if(!file) return;
-  const { data: { text } } = await Tesseract.recognize(file, 'eng');
+  const file=e.target.files[0]; if(!file) return;
+  const { data:{text} } = await Tesseract.recognize(file,'eng');
   const codes=text.match(/\b\d{7}\b/g);
   if(codes) codes.forEach(code=>checklist.push({code,qty:1,memo:""}));
   saveData(); renderLists();
@@ -218,6 +233,28 @@ document.getElementById("resetAllBtn").addEventListener("click",()=>{ if(!isLogi
 // --- ナビゲーション ---
 document.getElementById("navChecklist").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checklist"); });
 document.getElementById("navChecked").addEventListener("click",()=>{ if(!isLoginOk) return; showPage("page-checked"); });
+
+// --- バーコード・手入力チェック ---
+// エンターキー押下でチェック待ちリスト検索
+document.getElementById("productCodeInput").addEventListener("keypress",(e)=>{
+  if(e.key==="Enter"){
+    const code=e.target.value.trim();
+    if(!code) return;
+    const idx=checklist.findIndex(item=>item.code===code);
+    if(idx<0) return alert("該当なし");
+    const item=checklist[idx];
+    if(item.qty===1){
+      checkedList.push(item);
+      checklist.splice(idx,1);
+    } else {
+      let cnt=prompt(`数量を入力 (1〜${item.qty})`,1);
+      cnt=Math.min(Math.max(Number(cnt)||1,1),item.qty);
+      checklist[idx].qty-=cnt;
+      checkedList.push({code:item.code,qty:cnt,memo:item.memo});
+    }
+    saveData(); renderLists(); e.target.value="";
+  }
+});
 
 });
 </script>
