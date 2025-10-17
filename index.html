@@ -9,7 +9,7 @@
     header { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; }
     h1 { font-size: 18px; margin: 0; }
     main { padding: 12px; }
-    button, input { font-size: 16px; padding: 8px; border: 1px solid #000; border-radius: 6px; box-sizing: border-box; }
+    button, input, select { font-size: 16px; padding: 8px; border: 1px solid #000; border-radius: 6px; box-sizing: border-box; }
     button { background: #000; color: #fff; cursor: pointer; }
     nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #000; }
     nav button { flex: 1; border: none; border-right: 1px solid #fff; background: #000; color: #fff; padding: 10px; }
@@ -18,7 +18,7 @@
     .list-item { border: 1px solid #000; padding: 6px; margin-bottom: 6px; border-radius: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     .list-item input[type="number"] { width: 70px; }
     .copyBtn { background: #fff; color: #000; border: 1px solid #000; }
-    #cropCanvas { width: 100%; margin-top: 8px; border: 1px solid #000; }
+    .groupTitle { font-weight: bold; border-bottom: 1px solid #000; margin-top: 12px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
@@ -45,16 +45,24 @@
     <!-- チェック待ちリスト -->
     <section id="page-checklist" class="hidden">
       <h2>チェック待ちリスト</h2>
+
+      <!-- グループ設定 -->
+      <div style="margin-bottom:8px;">
+        <input id="groupNameInput" placeholder="グループ名 (例: A班)" />
+        <button id="setGroupBtn">グループ設定</button>
+      </div>
+
       <div style="display:flex;gap:8px;margin-bottom:8px;">
         <input id="productCodeInput" placeholder="7桁のコード" />
         <input id="productQtyInput" type="number" min="1" value="1" />
         <button id="addProductBtn">追加</button>
       </div>
+
       <div style="margin-bottom:8px;">
         <button id="ocrCaptureBtn">📷 OCRで追加</button>
         <input type="file" id="ocrInput" accept="image/*" capture="environment" class="hidden" />
-        <canvas id="cropCanvas" class="hidden"></canvas>
       </div>
+
       <div id="checklist"></div>
     </section>
 
@@ -75,6 +83,7 @@
   <script>
     const PASSWORD = "letmein123";
     let currentPage = "page-password";
+    let currentGroup = "未分類";
 
     const pages = ["page-password","page-login","page-checklist","page-checked"];
     function showPage(id){
@@ -83,6 +92,7 @@
       currentPage = id;
     }
 
+    // パスワード認証
     document.getElementById("passwordSubmit").onclick = ()=>{
       const val = document.getElementById("passwordInput").value;
       if(val===PASSWORD){ showPage("page-login"); }
@@ -91,6 +101,8 @@
         err.style.display="block"; setTimeout(()=>err.style.display="none",2000);
       }
     };
+
+    // ログイン
     document.getElementById("loginSubmit").onclick=()=>{
       const id=document.getElementById("userIdInput").value.trim();
       if(!id) return alert("IDを入力してください");
@@ -98,11 +110,13 @@
       showPage("page-checklist");
     };
 
+    // ナビ
     document.getElementById("navPassword").onclick=()=>showPage("page-password");
     document.getElementById("navLogin").onclick=()=>showPage("page-login");
     document.getElementById("navChecklist").onclick=()=>showPage("page-checklist");
     document.getElementById("navChecked").onclick=()=>showPage("page-checked");
 
+    // データ管理
     let checklist = JSON.parse(localStorage.getItem("indent:checklist")||"[]");
     let checkedList = JSON.parse(localStorage.getItem("indent:checkedList")||"[]");
     function saveData(){
@@ -115,23 +129,38 @@
 
     function renderLists(){
       checklistEl.innerHTML="";
-      checklist.forEach((item,i)=>{
-        const div=document.createElement("div");
-        div.className="list-item";
-        div.innerHTML=`
-          <span>${item.code}</span>
-          <input type="number" min="1" value="${item.qty}" data-i="${i}" class="qtyInput"/>
-          <button class="copyBtn" data-code="${item.code}">コピー</button>
-          <button class="checkBtn" data-i="${i}">✔</button>
-        `;
-        checklistEl.appendChild(div);
+
+      // グループごとにまとめる
+      const groups = {};
+      checklist.forEach(item=>{
+        if(!groups[item.group]) groups[item.group]=[];
+        groups[item.group].push(item);
+      });
+
+      Object.keys(groups).forEach(group=>{
+        const title=document.createElement("div");
+        title.className="groupTitle";
+        title.textContent=`📦 ${group}`;
+        checklistEl.appendChild(title);
+
+        groups[group].forEach((item,i)=>{
+          const div=document.createElement("div");
+          div.className="list-item";
+          div.innerHTML=`
+            <span>${item.code}</span>
+            <input type="number" min="1" value="${item.qty}" data-code="${item.code}" class="qtyInput"/>
+            <button class="copyBtn" data-code="${item.code}">コピー</button>
+            <button class="checkBtn" data-code="${item.code}">✔</button>
+          `;
+          checklistEl.appendChild(div);
+        });
       });
 
       document.querySelectorAll(".qtyInput").forEach(inp=>{
         inp.onchange=(e)=>{
-          const i=e.target.dataset.i;
-          checklist[i].qty=Number(e.target.value)||1;
-          saveData();
+          const code=e.target.dataset.code;
+          const target=checklist.find(x=>x.code===code);
+          if(target){ target.qty=Number(e.target.value)||1; saveData(); }
         };
       });
 
@@ -140,11 +169,14 @@
       });
 
       document.querySelectorAll(".checkBtn").forEach(btn=>{
-        btn.onclick=(e)=>{
-          const i=e.target.dataset.i;
-          checkedList.push(checklist[i]);
-          checklist.splice(i,1);
-          saveData(); renderLists();
+        btn.onclick=()=>{
+          const code=btn.dataset.code;
+          const idx=checklist.findIndex(x=>x.code===code);
+          if(idx>-1){
+            checkedList.push(checklist[idx]);
+            checklist.splice(idx,1);
+            saveData(); renderLists();
+          }
         };
       });
 
@@ -152,21 +184,29 @@
       checkedList.forEach(item=>{
         const div=document.createElement("div");
         div.className="list-item";
-        div.textContent=`${item.code} ×${item.qty}`;
+        div.textContent=`${item.code} ×${item.qty} (${item.group})`;
         checkedListEl.appendChild(div);
       });
     }
 
+    // グループ設定
+    document.getElementById("setGroupBtn").onclick=()=>{
+      const name=document.getElementById("groupNameInput").value.trim();
+      if(name) currentGroup=name;
+      alert(`現在のグループ: ${currentGroup}`);
+    };
+
+    // 手入力追加
     document.getElementById("addProductBtn").onclick=()=>{
       const code=document.getElementById("productCodeInput").value.trim();
       const qty=Number(document.getElementById("productQtyInput").value)||1;
       if(!/^[0-9]{7}$/.test(code)) return alert("7桁のコードを入力してください");
-      checklist.push({code,qty});
+      checklist.push({code,qty,group:currentGroup});
       saveData(); renderLists();
       document.getElementById("productCodeInput").value="";
     };
 
-    // ===== OCR機能（複数コード対応） =====
+    // OCR追加
     const ocrBtn=document.getElementById("ocrCaptureBtn");
     const ocrInput=document.getElementById("ocrInput");
     ocrBtn.onclick=()=>ocrInput.click();
@@ -174,42 +214,19 @@
     ocrInput.onchange=async(e)=>{
       const file=e.target.files[0];
       if(!file) return;
-      const img=new Image();
-      img.src=URL.createObjectURL(file);
-      img.onload=async()=>{
-        const canvas=document.getElementById("cropCanvas");
-        const ctx=canvas.getContext("2d");
-        canvas.width=img.width;
-        canvas.height=img.height;
-        ctx.drawImage(img,0,0);
-
-        // 白黒変換で精度向上
-        const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-        const data=imageData.data;
-        for(let i=0;i<data.length;i+=4){
-          const avg=(data[i]+data[i+1]+data[i+2])/3;
-          const v=avg>140?255:0;
-          data[i]=data[i+1]=data[i+2]=v;
-        }
-        ctx.putImageData(imageData,0,0);
-        canvas.classList.remove("hidden");
-
-        // OCR複数認識
-        const result=await Tesseract.recognize(canvas,"eng",{
-          tessedit_char_whitelist:"0123456789",
+      const result = await Tesseract.recognize(file,"eng",{
+        tessedit_char_whitelist:"0123456789",
+      });
+      const found = result.data.text.match(/\d{7}/g);
+      if(found && found.length>0){
+        found.forEach(num=>{
+          checklist.push({code:num,qty:1,group:currentGroup});
         });
-
-        const found = result.data.text.match(/\d{7}/g);
-        if(found && found.length>0){
-          found.forEach(num=>{
-            checklist.push({code:num, qty:1});
-          });
-          saveData(); renderLists();
-          alert(`${found.length}件のコードを追加しました`);
-        } else {
-          alert("7桁のコードを検出できませんでした。");
-        }
-      };
+        saveData(); renderLists();
+        alert(`${found.length}件のコードを${currentGroup}に追加しました`);
+      } else {
+        alert("7桁のコードを検出できませんでした。");
+      }
     };
 
     renderLists();
