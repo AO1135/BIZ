@@ -1,1 +1,184 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Indent — チェックリスト</title>
+<style>
+body { font-family: 'Noto Sans JP', sans-serif; margin:0; background:#fff; color:#000; }
+header { display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #ccc; }
+h1 { font-size:18px; margin:0; }
+main { padding:12px; }
+button, input { font-size:16px; padding:6px; border:1px solid #000; border-radius:6px; box-sizing:border-box; }
+button { background:#000; color:#fff; cursor:pointer; }
+nav { position:fixed; bottom:0; left:0; right:0; display:flex; background:#000; }
+nav button { flex:1; border:none; border-right:1px solid #fff; background:#000; color:#fff; padding:10px; }
+nav button:last-child { border-right:none; }
+.hidden { display:none; }
+.list-item { border:1px solid #000; padding:6px; margin-bottom:6px; border-radius:6px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.list-item input[type="number"] { width:70px; }
+.list-item input.memoInput { width:100px; }
+.copyBtn { background:#fff; color:#000; border:1px solid #000; }
+.groupTitle { font-weight:bold; border-bottom:1px solid #000; margin-top:12px; cursor:pointer; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+<header>
+<h1 id="title">パスワード入力</h1>
+<button id="langBtn">日本語 / English</button>
+</header>
+
+<main>
+<!-- パスワードページ -->
+<section id="page-password">
+<input id="passwordInput" type="password" placeholder="パスワードを入力" />
+<button id="passwordSubmit">ログイン</button>
+<p id="passwordError" style="color:red;display:none">パスワードが違います</p>
+</section>
+
+<!-- ログインページ -->
+<section id="page-login" class="hidden">
+<input id="userIdInput" placeholder="ユーザーIDを入力" />
+<button id="loginSubmit">ログイン</button>
+</section>
+
+<!-- チェック待ちリストページ -->
+<section id="page-checklist" class="hidden">
+<h2 id="checklistTitle">チェック待ちリスト</h2>
+<div style="display:flex;gap:8px;margin-bottom:8px;">
+<input id="productCodeInput" placeholder="7桁のコード" />
+<input id="productQtyInput" type="number" min="1" value="1" />
+<button id="addProductBtn">追加</button>
+</div>
+<div style="margin-bottom:8px;">
+<button id="ocrCaptureBtn">📷 OCRで追加</button>
+<input type="file" id="ocrInput" accept="image/*" capture="environment" class="hidden" />
+</div>
+<div id="checklist"></div>
+<button id="resetChecklistBtn" style="margin-top:8px;">チェック待ちリストをリセット</button>
+<button id="resetAllBtn" style="margin-top:8px;">全データをリセット</button>
+</section>
+
+<!-- チェック済みリストページ -->
+<section id="page-checked" class="hidden">
+<h2 id="checkedTitle">チェック済みリスト</h2>
+<div id="checkedList"></div>
+<button id="resetCheckedBtn" style="margin-top:8px;">チェック済みリストをリセット</button>
+</section>
+
+</main>
+
+<nav>
+<button id="navPassword">🔑</button>
+<button id="navLogin">👤</button>
+<button id="navChecklist">📋</button>
+<button id="navChecked">✅</button>
+</nav>
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+
+const PASSWORD="letmein123";
+let currentPage="page-password";
+let lang="ja";
+let checklist=JSON.parse(localStorage.getItem("indent:checklist")||"[]");
+let checkedList=JSON.parse(localStorage.getItem("indent:checkedList")||"[]");
+
+// --- テキスト ---
+const texts={
+ja:{ password:"パスワード入力", login:"ログイン", checklist:"チェック待ちリスト", checked:"チェック済みリスト", add:"追加" },
+en:{ password:"Enter Password", login:"Login", checklist:"Checklist", checked:"Checked Items", add:"Add" }
+};
+
+// --- ページ切替 ---
+function showPage(id){ 
+  ["page-password","page-login","page-checklist","page-checked"].forEach(p=>document.getElementById(p).classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+  currentPage=id;
+  document.getElementById("title").textContent=texts[lang][id.replace("page-","")];
+}
+document.getElementById("navPassword").onclick=()=>showPage("page-password");
+document.getElementById("navLogin").onclick=()=>showPage("page-login");
+document.getElementById("navChecklist").onclick=()=>showPage("page-checklist");
+document.getElementById("navChecked").onclick=()=>showPage("page-checked");
+
+// --- パスワード ---
+document.getElementById("passwordSubmit").onclick=()=>{
+  const val=document.getElementById("passwordInput").value;
+  if(val===PASSWORD) showPage("page-login");
+  else { let err=document.getElementById("passwordError"); err.style.display="block"; setTimeout(()=>err.style.display="none",2000);}
+};
+
+// --- ログイン ---
+document.getElementById("loginSubmit").onclick=()=>{
+  const id=document.getElementById("userIdInput").value.trim();
+  if(!id) return alert(lang==="ja"?"IDを入力してください":"Please enter ID");
+  localStorage.setItem("indent:user",id);
+  showPage("page-checklist");
+};
+
+// --- 言語切替 ---
+document.getElementById("langBtn").onclick=()=>{
+  lang=(lang==="ja"?"en":"ja");
+  showPage(currentPage);
+};
+
+// --- 保存 ---
+function saveData(){
+  localStorage.setItem("indent:checklist",JSON.stringify(checklist));
+  localStorage.setItem("indent:checkedList",JSON.stringify(checkedList));
+}
+
+// --- リスト描画 ---
+function renderLists(){
+  const checklistEl=document.getElementById("checklist");
+  const checkedListEl=document.getElementById("checkedList");
+  checklistEl.innerHTML="";
+  checklist.forEach((item,i)=>{
+    const div=document.createElement("div");
+    div.className="list-item";
+    div.innerHTML=`<span>${item.code}</span>
+    <input type="number" min="1" value="${item.qty}" data-i="${i}" class="qtyInput"/>
+    <input class="memoInput" type="text" placeholder="メモ" value="${item.memo||''}" data-i="${i}"/>
+    <button class="copyBtn" data-code="${item.code}">コピー</button>
+    <button class="checkBtn" data-i="${i}">✔</button>`;
+    checklistEl.appendChild(div);
+  });
+
+  document.querySelectorAll(".qtyInput").forEach(inp=>{inp.onchange=e=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); }; });
+  document.querySelectorAll(".memoInput").forEach(inp=>{inp.oninput=e=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); }; });
+  document.querySelectorAll(".copyBtn").forEach(btn=>{ btn.onclick=()=>{ navigator.clipboard.writeText(btn.dataset.code); alert(lang==="ja"?"コピーしました":"Copied"); }; });
+  document.querySelectorAll(".checkBtn").forEach(btn=>{ btn.onclick=()=>{ const i=btn.dataset.i; checkedList.push(checklist[i]); checklist.splice(i,1); saveData(); renderLists(); }; });
+
+  checkedListEl.innerHTML="";
+  checkedList.forEach(item=>{
+    const div=document.createElement("div");
+    div.className="list-item";
+    div.textContent=`${item.code} ×${item.qty} ${item.memo?('('+item.memo+')'):""}`;
+    checkedListEl.appendChild(div);
+  });
+}
+
+renderLists();
+
+// --- 手入力追加 ---
+document.getElementById("addProductBtn").onclick=()=>{
+  const code=document.getElementById("productCodeInput").value.trim();
+  const qty=Number(document.getElementById("productQtyInput").value)||1;
+  if(!/^\d{7}$/.test(code)) return alert(lang==="ja"?"7桁のコードを入力してください":"Please enter 7 digits code");
+  checklist.push({code,qty,memo:""});
+  saveData(); renderLists();
+  document.getElementById("productCodeInput").value="";
+};
+
+// --- リセットボタン ---
+document.getElementById("resetChecklistBtn").onclick=()=>{ checklist=[]; saveData(); renderLists(); };
+document.getElementById("resetCheckedBtn").onclick=()=>{ checkedList=[]; saveData(); renderLists(); };
+document.getElementById("resetAllBtn").onclick=()=>{ checklist=[]; checkedList=[]; localStorage.clear(); renderLists(); };
+
+</script>
+</body>
+</html>
+
 
