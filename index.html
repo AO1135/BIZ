@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 <title>Indent — チェックリスト</title>
 <style>
-body { font-family: 'Noto Sans JP', sans-serif; margin:0; background:#fff; color:#000; }
+body { font-family:'Noto Sans JP',sans-serif; margin:0; background:#fff; color:#000; }
 header { display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #ccc; }
 h1 { font-size:18px; margin:0; }
 main { padding:12px; }
@@ -19,6 +19,7 @@ nav button:last-child { border-right:none; }
 .list-item input[type="number"] { width:70px; }
 .list-item input.memoInput { width:100px; }
 .copyBtn { background:#fff; color:#000; border:1px solid #000; }
+#cropCanvas { border:1px solid #000; max-width:100%; display:none; touch-action:none; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
@@ -29,20 +30,17 @@ nav button:last-child { border-right:none; }
 </header>
 
 <main>
-<!-- パスワード画面 -->
 <section id="page-password">
 <input id="passwordInput" type="password" placeholder="パスワードを入力" />
 <button type="button" id="passwordSubmit">ログイン</button>
 <p id="passwordError" style="color:red;display:none">パスワードが違います</p>
 </section>
 
-<!-- ログイン画面 -->
 <section id="page-login" class="hidden">
 <input id="userIdInput" placeholder="ユーザーIDを入力" />
 <button type="button" id="loginSubmit">ログイン</button>
 </section>
 
-<!-- チェック待ちリスト -->
 <section id="page-checklist" class="hidden">
 <h2 id="checklistTitle">チェック待ちリスト</h2>
 <div style="display:flex;gap:8px;margin-bottom:8px;">
@@ -54,12 +52,12 @@ nav button:last-child { border-right:none; }
 <button type="button" id="ocrCaptureBtn">📷 OCRで追加</button>
 <input type="file" id="ocrInput" accept="image/*" capture="environment" class="hidden" />
 </div>
+<canvas id="cropCanvas"></canvas>
 <div id="checklist"></div>
 <button type="button" id="resetChecklistBtn" style="margin-top:8px;">チェック待ちリストをリセット</button>
 <button type="button" id="resetAllBtn" style="margin-top:8px;">全データをリセット</button>
 </section>
 
-<!-- チェック済みリスト -->
 <section id="page-checked" class="hidden">
 <h2 id="checkedTitle">チェック済みリスト</h2>
 <div id="checkedList"></div>
@@ -75,7 +73,7 @@ nav button:last-child { border-right:none; }
 <script>
 document.addEventListener("DOMContentLoaded",()=>{
 
-const PASSWORD="0509";
+const PASSWORD="letmein123";
 let currentPage="page-password";
 let lang="ja";
 let checklist=JSON.parse(localStorage.getItem("indent:checklist")||"[]");
@@ -148,7 +146,6 @@ function renderLists(){
     checklistEl.appendChild(div);
   });
 
-  // --- イベント委譲 ---
   checklistEl.addEventListener("click",function(e){
     if(e.target.classList.contains("checkBtn")){
       const i = e.target.dataset.i;
@@ -191,32 +188,69 @@ document.getElementById("addProductBtn").onclick=()=>{
   document.getElementById("productCodeInput").value="";
 };
 
-// --- リセットボタン ---
-document.getElementById("resetChecklistBtn").onclick=()=>{
+// --- OCR + トリミング ---
+const ocrInput = document.getElementById("ocrInput");
+const cropCanvas = document.getElementById("cropCanvas");
+let ctx=cropCanvas.getContext("2d");
+let imgObj=new Image();
+let startX=0, startY=0, endX=0, endY=0;
+let isDrawing=false;
+
+document.getElementById("ocrCaptureBtn").onclick = () => {
   if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login");
-  checklist=[]; saveData(); renderLists();
-};
-document.getElementById("resetCheckedBtn").onclick=()=>{
-  if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login");
-  checkedList=[]; saveData(); renderLists();
-};
-document.getElementById("resetAllBtn").onclick=()=>{
-  if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login");
-  checklist=[]; checkedList=[]; localStorage.clear(); renderLists();
+  ocrInput.click();
 };
 
-// --- ナビ ---
-document.getElementById("navChecklist").onclick=()=>{
-  if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login");
-  showPage("page-checklist");
-};
-document.getElementById("navChecked").onclick=()=>{
-  if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login");
-  showPage("page-checked");
+ocrInput.onchange = (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    imgObj.src = ev.target.result;
+  }
+  reader.readAsDataURL(file);
 };
 
+imgObj.onload = () => {
+  cropCanvas.width=imgObj.width/2;
+  cropCanvas.height=imgObj.height/2;
+  ctx.drawImage(imgObj,0,0,cropCanvas.width,cropCanvas.height);
+  cropCanvas.style.display="block";
+};
+
+// --- トリミング操作 ---
+cropCanvas.addEventListener("pointerdown",e=>{
+  isDrawing=true;
+  const rect=cropCanvas.getBoundingClientRect();
+  startX=e.clientX-rect.left; startY=e.clientY-rect.top;
 });
-</script>
-</body>
-</html>
+cropCanvas.addEventListener("pointermove",e=>{
+  if(!isDrawing) return;
+  const rect=cropCanvas.getBoundingClientRect();
+  endX=e.clientX-rect.left; endY=e.clientY-rect.top;
+  ctx.drawImage(imgObj,0,0,cropCanvas.width,cropCanvas.height);
+  ctx.strokeStyle="red"; ctx.lineWidth=2;
+  ctx.strokeRect(startX,startY,endX-startX,endY-startY);
+});
+cropCanvas.addEventListener("pointerup",async e=>{
+  if(!isDrawing) return;
+  isDrawing=false;
+  const cropWidth=endX-startX;
+  const cropHeight=endY-startY;
+  if(cropWidth<=0 || cropHeight<=0) return alert(lang==="ja"?"範囲を選択してください":"Select area");
+  const croppedData=cropCanvas.getContext("2d").getImageData(startX,startY,cropWidth,cropHeight);
+  const tmpCanvas=document.createElement("canvas");
+  tmpCanvas.width=cropWidth; tmpCanvas.height=cropHeight;
+  tmpCanvas.getContext("2d").putImageData(croppedData,0,0);
+  // OCR実行
+  const {data:{text}}=await Tesseract.recognize(tmpCanvas, 'eng+jpn', {logger:m=>console.log(m)});
+  const matches=text.match(/\b\d{7}\b/g);
+  if(!matches) return alert(lang==="ja"?"認識できませんでした":"No code detected");
+  matches.forEach(code => checklist.push({code,qty:1,memo:""}));
+  saveData(); renderLists();
+  cropCanvas.style.display="none";
+  alert(lang==="ja"?"OCRで追加しました":"Added via OCR");
+  ocrInput.value="";
+});
 
+// --- リ
