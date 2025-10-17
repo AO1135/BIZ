@@ -95,40 +95,34 @@ function showPage(id){
   if(id!=="page-password" && id!=="page-login") document.getElementById("title").textContent=texts[lang][id.replace("page-","")];
 }
 
+// --- スマホ対応クリック ---
+function addSmartClick(el,handler){
+  el.addEventListener("click",handler);
+  el.addEventListener("touchstart",e=>{ e.preventDefault(); handler(); });
+}
+
 // --- 言語切替 ---
-document.getElementById("langBtn").onclick=()=>{
-  lang=(lang==="ja"?"en":"ja");
-  showPage(currentPage);
-};
+addSmartClick(document.getElementById("langBtn"),()=>{ lang=(lang==="ja"?"en":"ja"); showPage(currentPage); });
 
 // --- パスワード ---
-document.getElementById("passwordSubmit").onclick=()=>{
+addSmartClick(document.getElementById("passwordSubmit"),()=>{
   const val=document.getElementById("passwordInput").value;
-  if(val===PASSWORD){
-    isPasswordOk=true;
-    showPage("page-login");
-  } else {
-    let err=document.getElementById("passwordError");
-    err.style.display="block";
-    setTimeout(()=>err.style.display="none",2000);
-  }
-};
+  if(val===PASSWORD){ isPasswordOk=true; showPage("page-login"); }
+  else{ let err=document.getElementById("passwordError"); err.style.display="block"; setTimeout(()=>err.style.display="none",2000);}
+});
 
 // --- ログイン ---
-document.getElementById("loginSubmit").onclick=()=>{
+addSmartClick(document.getElementById("loginSubmit"),()=>{
   if(!isPasswordOk) return alert(lang==="ja"?"パスワードを先に突破してください":"Please enter password first");
   const id=document.getElementById("userIdInput").value.trim();
   if(!id) return alert(lang==="ja"?"IDを入力してください":"Please enter ID");
   localStorage.setItem("indent:user",id);
   isLoginOk=true;
   showPage("page-checklist");
-};
+});
 
 // --- 保存 ---
-function saveData(){
-  localStorage.setItem("indent:checklist",JSON.stringify(checklist));
-  localStorage.setItem("indent:checkedList",JSON.stringify(checkedList));
-}
+function saveData(){ localStorage.setItem("indent:checklist",JSON.stringify(checklist)); localStorage.setItem("indent:checkedList",JSON.stringify(checkedList)); }
 
 // --- リスト描画 ---
 function renderLists(){
@@ -148,10 +142,7 @@ function renderLists(){
 
   checklistEl.addEventListener("click",function(e){
     if(e.target.classList.contains("checkBtn")){
-      const i = e.target.dataset.i;
-      checkedList.push(checklist[i]);
-      checklist.splice(i,1);
-      saveData(); renderLists();
+      const i=e.target.dataset.i; checkedList.push(checklist[i]); checklist.splice(i,1); saveData(); renderLists();
     }
     if(e.target.classList.contains("copyBtn")){
       navigator.clipboard.writeText(e.target.dataset.code);
@@ -159,12 +150,8 @@ function renderLists(){
     }
   });
 
-  document.querySelectorAll(".qtyInput").forEach(inp=>{
-    inp.onchange=e=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); };
-  });
-  document.querySelectorAll(".memoInput").forEach(inp=>{
-    inp.oninput=e=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); };
-  });
+  document.querySelectorAll(".qtyInput").forEach(inp=>{ inp.onchange=e=>{ checklist[e.target.dataset.i].qty=Number(e.target.value)||1; saveData(); }; });
+  document.querySelectorAll(".memoInput").forEach(inp=>{ inp.oninput=e=>{ checklist[e.target.dataset.i].memo=e.target.value; saveData(); }; });
 
   checkedListEl.innerHTML="";
   checkedList.forEach(item=>{
@@ -178,79 +165,15 @@ function renderLists(){
 renderLists();
 
 // --- 手入力追加 ---
-document.getElementById("addProductBtn").onclick=()=>{
+addSmartClick(document.getElementById("addProductBtn"),()=>{
   if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login");
   const code=document.getElementById("productCodeInput").value.trim();
   const qty=Number(document.getElementById("productQtyInput").value)||1;
   if(!/^\d{7}$/.test(code)) return alert(lang==="ja"?"7桁のコードを入力してください":"Please enter 7 digits code");
-  checklist.push({code,qty,memo:""});
-  saveData(); renderLists();
-  document.getElementById("productCodeInput").value="";
-};
-
-// --- OCR + トリミング ---
-const ocrInput = document.getElementById("ocrInput");
-const cropCanvas = document.getElementById("cropCanvas");
-let ctx=cropCanvas.getContext("2d");
-let imgObj=new Image();
-let startX=0, startY=0, endX=0, endY=0;
-let isDrawing=false;
-
-document.getElementById("ocrCaptureBtn").onclick = () => {
-  if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login");
-  ocrInput.click();
-};
-
-ocrInput.onchange = (e) => {
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev){
-    imgObj.src = ev.target.result;
-  }
-  reader.readAsDataURL(file);
-};
-
-imgObj.onload = () => {
-  cropCanvas.width=imgObj.width/2;
-  cropCanvas.height=imgObj.height/2;
-  ctx.drawImage(imgObj,0,0,cropCanvas.width,cropCanvas.height);
-  cropCanvas.style.display="block";
-};
-
-// --- トリミング操作 ---
-cropCanvas.addEventListener("pointerdown",e=>{
-  isDrawing=true;
-  const rect=cropCanvas.getBoundingClientRect();
-  startX=e.clientX-rect.left; startY=e.clientY-rect.top;
-});
-cropCanvas.addEventListener("pointermove",e=>{
-  if(!isDrawing) return;
-  const rect=cropCanvas.getBoundingClientRect();
-  endX=e.clientX-rect.left; endY=e.clientY-rect.top;
-  ctx.drawImage(imgObj,0,0,cropCanvas.width,cropCanvas.height);
-  ctx.strokeStyle="red"; ctx.lineWidth=2;
-  ctx.strokeRect(startX,startY,endX-startX,endY-startY);
-});
-cropCanvas.addEventListener("pointerup",async e=>{
-  if(!isDrawing) return;
-  isDrawing=false;
-  const cropWidth=endX-startX;
-  const cropHeight=endY-startY;
-  if(cropWidth<=0 || cropHeight<=0) return alert(lang==="ja"?"範囲を選択してください":"Select area");
-  const croppedData=cropCanvas.getContext("2d").getImageData(startX,startY,cropWidth,cropHeight);
-  const tmpCanvas=document.createElement("canvas");
-  tmpCanvas.width=cropWidth; tmpCanvas.height=cropHeight;
-  tmpCanvas.getContext("2d").putImageData(croppedData,0,0);
-  // OCR実行
-  const {data:{text}}=await Tesseract.recognize(tmpCanvas, 'eng+jpn', {logger:m=>console.log(m)});
-  const matches=text.match(/\b\d{7}\b/g);
-  if(!matches) return alert(lang==="ja"?"認識できませんでした":"No code detected");
-  matches.forEach(code => checklist.push({code,qty:1,memo:""}));
-  saveData(); renderLists();
-  cropCanvas.style.display="none";
-  alert(lang==="ja"?"OCRで追加しました":"Added via OCR");
-  ocrInput.value="";
+  checklist.push({code,qty,memo:""}); saveData(); renderLists(); document.getElementById("productCodeInput").value="";
 });
 
-// --- リ
+// --- リセットボタン ---
+addSmartClick(document.getElementById("resetChecklistBtn"),()=>{ if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login"); checklist=[]; saveData(); renderLists(); });
+addSmartClick(document.getElementById("resetCheckedBtn"),()=>{ if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login"); checkedList=[]; saveData(); renderLists(); });
+addSmartClick(document.getElementById("resetAllBtn"),()=>{ if(!isLoginOk) return alert(lang==="ja"?"ログインしてください":"Please login"); checklist
