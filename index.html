@@ -121,7 +121,7 @@ function applyLang(){
   document.getElementById('checklistReset').textContent=texts[lang].reset;
 }
 
-document.getElementById('langBtn').onclick=()=>{ lang=(lang==='ja')?'en':'ja'; applyLang(); renderPrecheck(); renderChecklist(); renderChecked(); };
+document.getElementById('langBtn').onclick=()=>{ lang=(lang==='ja')?'en':'ja'; applyLang(); renderPrecheck(); };
 
 // Password
 document.getElementById('passwordSubmit').onclick=()=>{
@@ -139,16 +139,20 @@ document.getElementById('loginSubmit').onclick=()=>{
 };
 
 let precheckList=JSON.parse(localStorage.getItem('indent:precheck')||'[]');
-let checklist=JSON.parse(localStorage.getItem('indent:checklist')||'[]');
-let checkedList=JSON.parse(localStorage.getItem('indent:checked')||'[]');
 
 function saveData(){
   localStorage.setItem('indent:precheck',JSON.stringify(precheckList));
-  localStorage.setItem('indent:checklist',JSON.stringify(checklist));
-  localStorage.setItem('indent:checked',JSON.stringify(checkedList));
 }
 
-function renderPrecheck(){
-  const el=document.getElementById('precheckList'); el.innerHTML='';
-  precheckList.forEach((item,i)=>{
-   
+document.getElementById('addProductBtn').onclick = () => {
+  const code = document.getElementById('productCodeInput').value.trim();
+  const qty = parseInt(document.getElementById('productQtyInput').value, 10);
+  const memo = document.getElementById('productMemoInput').value.trim();
+  if (!code || isNaN(qty) || qty < 1) return alert('コードと数量を正しく入力してください');
+
+  precheckList.push({ code, qty, memo });
+  saveData();
+  renderPrecheck();
+
+  document.getElementById('productCodeInput').value = '';
+  document.getElementById('product
