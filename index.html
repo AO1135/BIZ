@@ -44,7 +44,7 @@
     <!-- Pre-Check List Page -->
     <section id="page-precheck" class="hidden">
       <h2 id="precheckTitle">チェック待ちリスト</h2>
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;margin-bottom:8px; flex-wrap: wrap;">
         <input id="productCodeInput" placeholder="7桁のコード" />
         <input id="productQtyInput" type="number" min="1" value="1" />
         <input id="productMemoInput" placeholder="メモ" />
@@ -85,16 +85,6 @@
       en: { passwordTitle:'Enter Password', passwordPlaceholder:'Enter password', loginTitle:'Login', precheckTitle:'Pre-Check List', checklistTitle:'Checklist', checkedTitle:'Checked Items', wrongPass:'Incorrect password', add:'Add', ocr:'Add via OCR', confirm:'Confirm to Checklist', reset:'Reset' }
     };
 
-    const pages = ['page-precheck','page-checklist','page-checked'];
-
-    function showPage(id){
-      pages.forEach(p=>document.getElementById(p).classList.add('hidden'));
-      document.getElementById(id).classList.remove('hidden');
-      if(id==='page-precheck') document.getElementById('title').textContent = texts[lang].precheckTitle;
-      if(id==='page-checklist') document.getElementById('title').textContent = texts[lang].checklistTitle;
-      if(id==='page-checked') document.getElementById('title').textContent = texts[lang].checkedTitle;
-    }
-
     function applyLang(){
       document.getElementById('passwordInput').placeholder = texts[lang].passwordPlaceholder;
       document.getElementById('passwordError').textContent = texts[lang].wrongPass;
@@ -133,6 +123,15 @@
       localStorage.setItem('indent:checked',JSON.stringify(checkedList));
     }
 
+    function showPage(id){
+      ['page-precheck','page-checklist','page-checked'].forEach(p=>document.getElementById(p).classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+      if(id==='page-precheck') document.getElementById('title').textContent = texts[lang].precheckTitle;
+      if(id==='page-checklist') document.getElementById('title').textContent = texts[lang].checklistTitle;
+      if(id==='page-checked') document.getElementById('title').textContent = texts[lang].checkedTitle;
+    }
+
+    // Precheck
     function renderPrecheck(){
       const el=document.getElementById('precheckList'); el.innerHTML='';
       precheckList.forEach((item,i)=>{
@@ -161,8 +160,12 @@
       });
       document.querySelectorAll('.checkBtn').forEach(btn=>btn.onclick=e=>{
         const i=e.target.dataset.i;
-        if(checklist[i].qty>1){ checklist[i].qty--; checkedList.push({code:checklist[i].code,qty:1,memo:checklist[i].memo}); }
-        else { checkedList.push(checklist[i]); checklist.splice(i,1); }
+        if(checklist[i].qty>1){
+          checklist[i].qty--; 
+          checkedList.push({code:checklist[i].code,qty:1,memo:checklist[i].memo});
+        } else { 
+          checkedList.push(checklist[i]); checklist.splice(i,1);
+        }
         saveData(); renderChecklist(); renderChecked(); playSound('success');
       });
     }
@@ -170,11 +173,22 @@
     function renderChecked(){
       const el=document.getElementById('checkedList'); el.innerHTML='';
       const grouped = {};
-      checkedList.forEach(it=>{ if(grouped[it.code]) grouped[it.code].qty+=it.qty; else grouped[it.code]={...it}; });
-      Object.values(grouped).forEach(it=>{
+      checkedList.forEach(it=>{
+        if(grouped[it.code]) grouped[it.code].qty += it.qty;
+        else grouped[it.code] = {...it};
+      });
+      Object.values(grouped).forEach((it,i)=>{
         const div=document.createElement('div'); div.className='list-item';
-        div.textContent=`${it.code} ×${it.qty} ${it.memo?(' '+it.memo):''}`;
+        div.innerHTML=`${it.code} ×${it.qty} <input type='text' class='small-input memo-checked' data-i='${i}' value='${it.memo||''}' placeholder='メモ'>`;
         el.appendChild(div);
+      });
+      document.querySelectorAll('.memo-checked').forEach(input=>{
+        input.onchange=e=>{
+          const i=e.target.dataset.i;
+          Object.values(grouped)[i].memo = e.target.value;
+          checkedList = Object.values(grouped);
+          saveData();
+        };
       });
     }
 
@@ -207,7 +221,12 @@
       input.click();
     };
 
-    document.getElementById('precheckConfirm').onclick=()=>{ checklist.push(...precheckList); precheckList=[]; saveData(); renderPrecheck(); renderChecklist(); showPage('page-checklist'); };
+    document.getElementById('precheckConfirm').onclick=()=>{
+      checklist.push(...precheckList);
+      precheckList=[];
+      saveData(); renderPrecheck(); renderChecklist();
+      showPage('page-checklist');
+    };
 
     document.getElementById('precheckReset').onclick=()=>{ precheckList=[]; saveData(); renderPrecheck(); };
     document.getElementById('checklistReset').onclick=()=>{ checklist=[]; saveData(); renderChecklist(); };
