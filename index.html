@@ -28,20 +28,17 @@ textarea { width: 100%; margin-top: 4px; }
 </header>
 
 <main>
-  <!-- Password -->
   <section id="page-password">
     <input id="passwordInput" type="password" placeholder="パスワードを入力" />
     <button id="passwordSubmit">ログイン</button>
     <p id="passwordError" style="color:red;display:none">パスワードが違います</p>
   </section>
 
-  <!-- Login -->
   <section id="page-login" class="hidden">
     <input id="userIdInput" placeholder="ユーザーIDを入力" />
     <button id="loginSubmit">ログイン</button>
   </section>
 
-  <!-- Pre-Check List -->
   <section id="page-precheck" class="hidden">
     <h2 id="precheckTitle">チェック待ちリスト</h2>
     <div style="display:flex;gap:8px;margin-bottom:8px; flex-wrap: wrap;">
@@ -56,14 +53,12 @@ textarea { width: 100%; margin-top: 4px; }
     <button id="precheckReset">リセット</button>
   </section>
 
-  <!-- Checklist -->
   <section id="page-checklist" class="hidden">
     <h2 id="checklistTitle">チェックリスト</h2>
     <div id="checklist"></div>
     <button id="checklistReset">リセット</button>
   </section>
 
-  <!-- Checked -->
   <section id="page-checked" class="hidden">
     <h2 id="checkedTitle">チェック済みリスト</h2>
     <div id="checkedList"></div>
@@ -108,6 +103,8 @@ function renderPrecheck(){
     div.innerHTML=`${item.code} <input type='number' class='small-input qty' data-i='${i}' value='${item.qty}' min='1'> <input type='text' class='small-input memo' data-i='${i}' value='${item.memo||''}' placeholder='メモ'> <button data-i='${i}' class='removeBtn'>削除</button>`;
     el.appendChild(div);
   });
+
+  // ボタン・入力イベント
   document.querySelectorAll('.removeBtn').forEach(btn=>btn.onclick=e=>{
     precheckList.splice(e.target.dataset.i,1); saveData(); renderPrecheck();
   });
@@ -127,6 +124,7 @@ function renderChecklist(){
     div.innerHTML=`${item.code} ×${item.qty} <span class='memo'>${item.memo||''}</span> <button data-i='${i}' class='checkBtn'>✔</button>`;
     el.appendChild(div);
   });
+
   document.querySelectorAll('.checkBtn').forEach(btn=>btn.onclick=e=>{
     const i=e.target.dataset.i;
     if(checklist[i].qty>1){ checklist[i].qty--; checkedList.push({code:checklist[i].code,qty:1,memo:checklist[i].memo}); }
@@ -143,6 +141,7 @@ function renderChecked(){
     if(grouped[it.code]) grouped[it.code].qty+=it.qty;
     else grouped[it.code]={...it};
   });
+
   Object.values(grouped).forEach((it,i)=>{
     const div=document.createElement('div'); div.className='list-item';
     div.innerHTML=`
@@ -151,16 +150,33 @@ function renderChecked(){
     `;
     el.appendChild(div);
   });
-  document.querySelectorAll('.returnBtn').forEach(btn=>btn.onclick=e=>{
-    const i=e.target.dataset.i;
-    checklist.push({...Object.values(grouped)[i]});
-    checkedList = checkedList.filter(it=>it.code!==Object.values(grouped)[i].code || (it.qty<1));
-    saveData(); renderChecklist(); renderChecked();
-  }));
+
+  document.querySelectorAll('.returnBtn').forEach(btn=>{
+    btn.onclick=e=>{
+      const i=e.target.dataset.i;
+      const codeObj = Object.values(grouped)[i];
+      checklist.push({...codeObj});
+      // チェック済みから該当コードを1つだけ減らす
+      let count = codeObj.qty;
+      checkedList = checkedList.map(it=>{
+        if(it.code===codeObj.code && count>0){
+          const newIt={...it};
+          newIt.qty--;
+          count--;
+          return newIt.qty>0?newIt:null;
+        }
+        return it;
+      }).filter(Boolean);
+      saveData(); renderChecklist(); renderChecked();
+    };
+  });
+
   document.querySelectorAll('.memo-checked').forEach(input=>{
     input.onchange=e=>{
       const i=e.target.dataset.i;
-      Object.values(grouped)[i].memo=e.target.value;
+      const codeObj = Object.values(grouped)[i];
+      Object.values(grouped)[i].memo = e.target.value;
+      // 更新
       checkedList = Object.values(grouped);
       saveData();
     };
@@ -173,44 +189,11 @@ function playSound(type){
   audio.play();
 }
 
-// Add
+// Add product
 document.getElementById('addProductBtn').onclick=()=>{
   const code=document.getElementById('productCodeInput').value.trim();
   const qty=Number(document.getElementById('productQtyInput').value)||1;
   const memo=document.getElementById('productMemoInput').value.trim();
   if(!/^\d{7}$/.test(code)) return alert('7桁のコードを入力してください');
   precheckList.push({code,qty,memo}); saveData(); renderPrecheck();
-  document.getElementById('productCodeInput').value=''; document.getElementById('productMemoInput').value='';
-};
-
-// OCR
-document.getElementById('ocrBtn').onclick=()=>{
-  const input=document.createElement('input'); input.type='file'; input.accept='image/*'; input.capture='environment';
-  input.onchange=async(e)=>{
-    const file=e.target.files[0];
-    if(!file) return;
-    const result=await Tesseract.recognize(file,'eng',{tessedit_char_whitelist:'0123456789'});
-    const codes=result.data.text.match(/\d{7}/g)||[];
-    codes.forEach(c=>precheckList.push({code:c,qty:1,memo:''}));
-    saveData(); renderPrecheck();
-  };
-  input.click();
-};
-
-document.getElementById('precheckConfirm').onclick=()=>{
-  checklist.push(...precheckList);
-  precheckList=[]; saveData(); renderPrecheck(); renderChecklist();
-  showPage('page-checklist');
-};
-
-document.getElementById('precheckReset').onclick=()=>{ precheckList=[]; saveData(); renderPrecheck(); };
-document.getElementById('checklistReset').onclick=()=>{ checklist=[]; saveData(); renderChecklist(); };
-
-document.getElementById('navPrecheck').onclick = () => showPage('page-precheck');
-document.getElementById('navChecklist').onclick = () => showPage('page-checklist');
-document.getElementById('navChecked').onclick = () => showPage('page-checked');
-
-renderPrecheck(); renderChecklist(); renderChecked();
-</script>
-</body>
-</html>
+  document.getElementById('productCodeInput').value='';
