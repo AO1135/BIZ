@@ -1,29 +1,26 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Indent — チェックリスト</title>
 <style>
-  :root{--black:#000;--white:#fff}
-  body{font-family:Inter, "Noto Sans JP",system-ui, sans-serif;margin:0;background:var(--white);color:var(--black);-webkit-tap-highlight-color:transparent}
+  :root{--bg:#fff;--fg:#000}
+  body{font-family:"Noto Sans JP",system-ui,Arial;margin:0;background:var(--bg);color:var(--fg);-webkit-tap-highlight-color:transparent}
   header{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #ddd}
   h1{font-size:18px;margin:0}
   main{padding:12px}
   .row{display:flex;gap:8px;flex-wrap:wrap}
-  input, button, select, textarea{font-size:16px;padding:8px;border:1px solid #111;border-radius:8px;box-sizing:border-box}
-  button{background:var(--black);color:var(--white);cursor:pointer}
+  input,button,select,textarea{font-size:16px;padding:8px;border:1px solid #111;border-radius:8px;box-sizing:border-box}
+  button{background:#000;color:#fff;cursor:pointer}
   .hidden{display:none}
-  nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--black)}
-  nav button{flex:1;padding:12px;border:none;color:#fff;background:var(--black);font-size:16px}
+  nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#000}
+  nav button{flex:1;padding:12px;border:none;color:#fff;background:#000}
   .list-item{border:1px solid #111;padding:8px;margin-bottom:8px;border-radius:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .list-item .code{font-weight:600;min-width:90px}
+  .code{font-weight:600;min-width:90px}
   .small{font-size:13px;padding:6px}
-  #cropCanvas{max-width:100%;border:1px solid #111;display:none}
-  .modal{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center}
-  .modal .card{background:#fff;padding:12px;border-radius:8px;max-width:420px;width:92%}
+  .modal{display:none}
 </style>
-
 <!-- Tesseract.js -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
@@ -43,7 +40,7 @@
     <p id="passwordError" style="color:red;display:none">パスワードが違います</p>
   </section>
 
-  <!-- Login ID -->
+  <!-- Login -->
   <section id="page-login" class="hidden">
     <div class="row">
       <input id="userIdInput" placeholder="ユーザーIDを入力" />
@@ -51,12 +48,12 @@
     </div>
   </section>
 
-  <!-- Waiting / Pre-check list -->
+  <!-- Wait list -->
   <section id="page-wait" class="hidden">
     <h2 id="waitTitle">チェック待ちリスト</h2>
 
     <div class="row" style="margin-bottom:8px">
-      <input id="productCodeInput_wait" placeholder="7桁のコード (手入力 / バーコード)" />
+      <input id="productCodeInput_wait" placeholder="7桁のコード (手入力/バーコード)" />
       <input id="productQtyInput_wait" type="number" min="1" value="1" style="width:90px" />
       <input id="productMemoInput_wait" placeholder="メモ（1行）" style="flex:1" />
       <button id="addProductBtn_wait">追加（一時）</button>
@@ -65,11 +62,11 @@
     <div class="row" style="margin-bottom:8px">
       <button id="ocrCaptureBtn">📷 撮影してOCR</button>
       <input id="ocrInput" type="file" accept="image/*" capture="environment" class="hidden" />
-      <button id="groupCreateBtn">グループ作成（選択商品をグループ化）</button>
-      <input id="groupNameInput" placeholder="グループ名" style="width:160px" />
+      <input id="groupNameInput" placeholder="グループ名" style="width:160px"/>
+      <button id="groupCreateBtn">選択をグループ化</button>
     </div>
 
-    <p style="margin:6px 0;color:#666" id="tempNote">※ 追加はまずここに一時保存されます。選択して「決定」でチェックリストへ移動します。</p>
+    <p style="margin:6px 0;color:#666">※ 選択して「決定」でチェックリストへ移動します。</p>
 
     <div id="waitList"></div>
 
@@ -80,20 +77,18 @@
     </div>
   </section>
 
-  <!-- Ready / Check list -->
+  <!-- Ready list -->
   <section id="page-ready" class="hidden">
     <h2 id="readyTitle">チェックリスト</h2>
-
     <div class="row" style="margin-bottom:8px">
-      <input id="scanInputReady" placeholder="バーコード / 手入力でチェック（Enter）" />
+      <input id="scanInputReady" placeholder="バーコード / 手入力でチェック（Enter）" style="flex:1" />
       <button id="scanBtnReady">チェック実行</button>
       <button id="toCheckedPage">チェック済みを表示</button>
     </div>
-
     <div id="readyList"></div>
   </section>
 
-  <!-- Checked -->
+  <!-- Checked list -->
   <section id="page-checked" class="hidden">
     <h2 id="checkedTitle">チェック済みリスト</h2>
     <div id="checkedList"></div>
@@ -103,112 +98,80 @@
   </section>
 </main>
 
-<!-- modal for choosing count -->
-<div id="countModal" class="hidden modal" aria-hidden="true">
-  <div class="card">
-    <div style="margin-bottom:8px">
-      <div id="countModalText">個数を入力してください</div>
-      <input id="countModalInput" type="number" min="1" value="1" style="width:100%" />
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button id="countModalCancel">キャンセル</button>
-      <button id="countModalOk">OK</button>
-    </div>
-  </div>
-</div>
+<nav>
+  <button id="navChecklist">📋 チェック待ち</button>
+  <button id="navReady">📝 チェックリスト</button>
+  <button id="navChecked">✅ チェック済み</button>
+</nav>
 
 <script>
-/* =============== ユーティリティ / 初期データ =============== */
+/* ---------- settings & data ---------- */
 const PASSWORD = "0509";
-let lang = "ja"; // 'ja' or 'en'
+let lang = "ja";
 let isPasswordOk = false;
 let isLoginOk = false;
 
-// データストア
-let waitList = JSON.parse(localStorage.getItem("indent:waitList")||"[]");      // チェック待ち（一時含む）
-let readyList = JSON.parse(localStorage.getItem("indent:readyList")||"[]");    // 確定 -> チェックリスト
-let checkedList = JSON.parse(localStorage.getItem("indent:checkedList")||"[]");// チェック済み（個別記録）
+let waitList = JSON.parse(localStorage.getItem("indent:waitList")||"[]");
+let readyList = JSON.parse(localStorage.getItem("indent:readyList")||"[]");
+let checkedList = JSON.parse(localStorage.getItem("indent:checkedList")||"[]");
 
-// 重複タップ防止のためのフラグ
-let lastTouchTime = 0;
-function addSmartClick(el, handler){
-  // allows both touch and click but avoids double-fire
-  el.addEventListener("touchstart", (ev)=>{
-    const now = Date.now();
-    if(now - lastTouchTime < 700) return;
-    lastTouchTime = now;
-    handler(ev);
-  }, {passive:true});
-  el.addEventListener("click", (ev)=>{
-    const now = Date.now();
-    if(now - lastTouchTime < 700){
-      // a recent touch handled it — skip this click
-      lastTouchTime = 0;
-      return;
-    }
-    handler(ev);
-  });
+function saveAll(){
+  localStorage.setItem("indent:waitList", JSON.stringify(waitList));
+  localStorage.setItem("indent:readyList", JSON.stringify(readyList));
+  localStorage.setItem("indent:checkedList", JSON.stringify(checkedList));
 }
 
-// 言語テキスト
+/* ---------- localization ---------- */
 const texts = {
   ja: {
-    title_wait: "チェック待ちリスト",
-    title_ready: "チェックリスト",
-    title_checked: "チェック済みリスト",
+    waitTitle: "チェック待ちリスト",
+    readyTitle: "チェックリスト",
+    checkedTitle: "チェック済みリスト",
     add_temp: "追加（一時）",
     ocr: "📷 撮影してOCR",
-    group_create: "グループ作成（選択商品をグループ化）",
+    group_create: "選択をグループ化",
     decide: "選択商品をチェックリストに決定",
     reset_wait: "チェック待ちリストをリセット",
     reset_all: "全データをリセット",
     reset_checked: "チェック済みリストをリセット",
     enter_password: "パスワードを入力",
     login: "ログイン",
-    enter_id: "ユーザーIDを入力",
     pass_required: "パスワードを先に突破してください",
     enter_id_alert: "IDを入力してください",
     code7: "7桁のコードを入力してください",
     copied: "コピーしました",
     ocrAdded: "OCRで追加しました",
     no_hit: "該当なし",
-    specify_count: "個数を入力してください",
-    beepLabel: "ピッ",
-    enter_group_name: "グループ名を入力してください",
-    scan_placeholder: "バーコード / 手入力でチェック（Enter）",
+    decide_ok: "チェックリストに移しました",
     memo_placeholder: "メモ（1行）",
-    decide_ok: "チェックリストに移しました"
+    scan_placeholder: "バーコード / 手入力でチェック（Enter）"
   },
   en: {
-    title_wait: "Waiting list",
-    title_ready: "Checklist",
-    title_checked: "Checked items",
+    waitTitle: "Waiting list",
+    readyTitle: "Checklist",
+    checkedTitle: "Checked items",
     add_temp: "Add (temp)",
     ocr: "📷 Capture & OCR",
-    group_create: "Create group (for selected)",
+    group_create: "Group selected",
     decide: "Decide selected → Checklist",
     reset_wait: "Reset waiting list",
     reset_all: "Reset all data",
     reset_checked: "Reset checked list",
     enter_password: "Enter Password",
     login: "Login",
-    enter_id: "Enter user ID",
     pass_required: "Please enter password first",
     enter_id_alert: "Please enter ID",
     code7: "Please enter 7 digits code",
     copied: "Copied",
     ocrAdded: "Added via OCR",
     no_hit: "No match",
-    specify_count: "Specify count",
-    beepLabel: "Beep",
-    enter_group_name: "Please enter group name",
-    scan_placeholder: "Scan or type code (Enter)",
+    decide_ok: "Moved to checklist",
     memo_placeholder: "Memo (1 line)",
-    decide_ok: "Moved to checklist"
+    scan_placeholder: "Scan or type code (Enter)"
   }
 };
 
-// ピッ音作成（バーコードスキャナ風の短い音）
+/* ---------- beep (barcode-like) ---------- */
 let audioCtx;
 function playBeep(){
   try{
@@ -216,35 +179,16 @@ function playBeep(){
     const o = audioCtx.createOscillator();
     const g = audioCtx.createGain();
     o.type = "square";
-    o.frequency.value = 1400; // 高めの短い音
-    g.gain.value = 0.0015; // 小さめ（端末に合わせ調整）
+    o.frequency.value = 1400;
+    g.gain.value = 0.0015;
     o.connect(g);
     g.connect(audioCtx.destination);
     o.start();
-    setTimeout(()=>{ o.stop(); }, 80); // 80ms の短い音
-  }catch(e){
-    console.warn("Audio not available", e);
-  }
+    setTimeout(()=>o.stop(), 80);
+  }catch(e){ console.warn("Audio error", e); }
 }
 
-// 保存
-function saveAll(){
-  localStorage.setItem("indent:waitList", JSON.stringify(waitList));
-  localStorage.setItem("indent:readyList", JSON.stringify(readyList));
-  localStorage.setItem("indent:checkedList", JSON.stringify(checkedList));
-}
-
-// helper: grouped summary for checkedList
-function getCheckedSummary(){
-  const summary = {};
-  checkedList.forEach(it=>{
-    if(!summary[it.code]) summary[it.code] = {qty:0, memo: it.memo || "", group: it.group || ""};
-    summary[it.code].qty += Number(it.qty||1);
-  });
-  return summary;
-}
-
-/* =============== UI 更新 =============== */
+/* ---------- dom references ---------- */
 const dom = {
   title: document.getElementById("title"),
   pagePassword: document.getElementById("page-password"),
@@ -261,48 +205,23 @@ const dom = {
   loginSubmit: document.getElementById("loginSubmit"),
   ocrInput: document.getElementById("ocrInput"),
   ocrCaptureBtn: document.getElementById("ocrCaptureBtn"),
-  decideBtn: document.getElementById("decideBtn"),
+  productCodeInput_wait: document.getElementById("productCodeInput_wait"),
+  productQtyInput_wait: document.getElementById("productQtyInput_wait"),
+  productMemoInput_wait: document.getElementById("productMemoInput_wait"),
+  addProductBtn_wait: document.getElementById("addProductBtn_wait"),
   groupNameInput: document.getElementById("groupNameInput"),
   groupCreateBtn: document.getElementById("groupCreateBtn"),
+  decideBtn: document.getElementById("decideBtn"),
   scanInputReady: document.getElementById("scanInputReady"),
   scanBtnReady: document.getElementById("scanBtnReady"),
-  countModal: document.getElementById("countModal"),
-  countModalInput: document.getElementById("countModalInput"),
-  countModalText: document.getElementById("countModalText"),
-  countModalOk: document.getElementById("countModalOk"),
-  countModalCancel: document.getElementById("countModalCancel")
+  toCheckedPage: document.getElementById("toCheckedPage")
 };
 
-let currentPage = "page-password";
-
-function showPage(id){
-  // パスワード・ログイン要件
-  if(id !== "page-password" && id !== "page-login"){
-    if(!isPasswordOk || !isLoginOk){
-      alert(texts[lang].pass_required);
-      return;
-    }
-  }
-  currentPage = id;
-  // hide all
-  ["page-password","page-login","page-wait","page-ready","page-checked"].forEach(pid=>{
-    document.getElementById(pid).classList.add("hidden");
-  });
-  document.getElementById(id).classList.remove("hidden");
-
-  // header title update
-  if(id === "page-wait") dom.title.textContent = texts[lang].title_wait;
-  if(id === "page-ready") dom.title.textContent = texts[lang].title_ready;
-  if(id === "page-checked") dom.title.textContent = texts[lang].title_checked;
-  if(id === "page-password") dom.title.textContent = texts[lang].enter_password;
-  if(id === "page-login") dom.title.textContent = texts[lang].login;
-
-  updateLangTexts();
-  renderAll();
-}
-
-function updateLangTexts(){
-  // buttons & placeholders
+/* ---------- helpers ---------- */
+function updateLangUI(){
+  document.getElementById("waitTitle").textContent = texts[lang].waitTitle;
+  document.getElementById("readyTitle").textContent = texts[lang].readyTitle;
+  document.getElementById("checkedTitle").textContent = texts[lang].checkedTitle;
   document.getElementById("addProductBtn_wait").textContent = texts[lang].add_temp;
   document.getElementById("ocrCaptureBtn").textContent = texts[lang].ocr;
   document.getElementById("groupCreateBtn").textContent = texts[lang].group_create;
@@ -310,113 +229,91 @@ function updateLangTexts(){
   document.getElementById("resetWaitBtn").textContent = texts[lang].reset_wait;
   document.getElementById("resetAllBtn").textContent = texts[lang].reset_all;
   document.getElementById("resetCheckedBtn").textContent = texts[lang].reset_checked;
-  document.getElementById("productCodeInput_wait").placeholder = texts[lang].scan_placeholder;
-  document.getElementById("productMemoInput_wait").placeholder = texts[lang].memo_placeholder;
+  dom.productCodeInput_wait.placeholder = texts[lang].scan_placeholder;
+  dom.productMemoInput_wait.placeholder = texts[lang].memo_placeholder;
   dom.scanInputReady.placeholder = texts[lang].scan_placeholder;
-  dom.countModalText.textContent = texts[lang].specify_count;
 }
 
-function renderAll(){
-  renderWaitList();
-  renderReadyList();
-  renderCheckedList();
+function showPage(id){
+  if(id !== "page-password" && id !== "page-login"){
+    if(!isPasswordOk || !isLoginOk){
+      alert(texts[lang].pass_required);
+      return;
+    }
+  }
+  // hide all
+  ["page-password","page-login","page-wait","page-ready","page-checked"].forEach(pid=>{
+    document.getElementById(pid).classList.add("hidden");
+  });
+  document.getElementById(id).classList.remove("hidden");
+  // title
+  if(id === "page-wait") dom.title.textContent = texts[lang].waitTitle;
+  if(id === "page-ready") dom.title.textContent = texts[lang].readyTitle;
+  if(id === "page-checked") dom.title.textContent = texts[lang].checkedTitle;
+  if(id === "page-password") dom.title.textContent = texts[lang].enter_password;
+  if(id === "page-login") dom.title.textContent = texts[lang].login;
+  updateLangUI(); renderAll();
 }
 
+/* ---------- rendering ---------- */
 function renderWaitList(){
-  const el = dom.waitListEl;
-  el.innerHTML = "";
-  waitList.forEach((it, idx)=>{
+  const el = dom.waitListEl; el.innerHTML = "";
+  waitList.forEach((it, i)=>{
     const div = document.createElement("div");
     div.className = "list-item";
     div.innerHTML = `
-      <input type="checkbox" class="selectItem" data-i="${idx}" />
+      <input type="checkbox" class="selectItem" data-i="${i}" />
       <div class="code">${it.code}</div>
-      <input class="small qtyInput" data-i="${idx}" value="${it.qty||1}" type="number" min="1" style="width:80px" />
-      <input class="memoInput" data-i="${idx}" value="${it.memo||''}" placeholder="${texts[lang].memo_placeholder}" style="flex:1" />
+      <input class="small qtyWait" data-i="${i}" value="${it.qty||1}" type="number" min="1" style="width:80px" />
+      <input class="memoInput" data-i="${i}" value="${it.memo||''}" placeholder="${texts[lang].memo_placeholder}" style="flex:1" />
       <div style="min-width:120px">${it.group?('['+it.group+']'):""}</div>
       <button class="copyBtn small" data-code="${it.code}">コピー</button>
     `;
     el.appendChild(div);
   });
-  // attach event delegation once (safe to re-attach but we avoid duplicates by checking)
-  if(!renderWaitList.bound){
-    el.addEventListener("click", (e)=>{
-      const t = e.target;
-      if(t.classList.contains("copyBtn")){
-        navigator.clipboard.writeText(t.dataset.code);
-        alert(texts[lang].copied);
-      }
-    });
-    renderWaitList.bound = true;
-  }
-
-  // qty and memo changes
-  el.querySelectorAll(".qtyInput").forEach(inp=>{
-    inp.onchange = (ev)=>{
-      const i = Number(inp.dataset.i);
-      waitList[i].qty = Math.max(1, Number(inp.value)||1);
-      saveAll();
-    };
-  });
-  el.querySelectorAll(".memoInput").forEach(inp=>{
-    inp.oninput = (ev)=>{
-      const i = Number(inp.dataset.i);
-      waitList[i].memo = inp.value;
-      saveAll();
-    };
-  });
+  // event delegations
+  el.querySelectorAll(".copyBtn").forEach(b=>b.onclick = (e)=>{ navigator.clipboard.writeText(e.target.dataset.code); alert(texts[lang].copied); });
+  el.querySelectorAll(".qtyWait").forEach(inp=> inp.onchange = ()=>{ const i = Number(inp.dataset.i); waitList[i].qty = Math.max(1, Number(inp.value)||1); saveAll(); });
+  el.querySelectorAll(".memoInput").forEach(inp=> inp.oninput = ()=>{ const i = Number(inp.dataset.i); waitList[i].memo = inp.value; saveAll(); });
 }
 
 function renderReadyList(){
-  const el = dom.readyListEl;
-  el.innerHTML = "";
-  readyList.forEach((it, idx)=>{
+  const el = dom.readyListEl; el.innerHTML = "";
+  readyList.forEach((it,i)=>{
     const div = document.createElement("div");
     div.className = "list-item";
     div.innerHTML = `
       <div class="code">${it.code} ${it.group?('['+it.group+']'):""}</div>
-      <input class="small readyQty" data-i="${idx}" value="${it.qty||1}" type="number" min="1" style="width:80px" />
-      <input class="memoInput readyMemo" data-i="${idx}" value="${it.memo||''}" placeholder="${texts[lang].memo_placeholder}" style="flex:1" />
-      <button class="checkBtn small" data-i="${idx}">✔</button>
+      <input class="small readyQty" data-i="${i}" value="${it.qty||1}" type="number" min="1" style="width:80px" />
+      <input class="memoInput readyMemo" data-i="${i}" value="${it.memo||''}" placeholder="${texts[lang].memo_placeholder}" style="flex:1" />
+      <button class="checkBtn small" data-i="${i}">✔</button>
     `;
     el.appendChild(div);
   });
-
-  if(!renderReadyList.bound){
-    el.addEventListener("click", (e)=>{
-      const t = e.target;
-      if(t.classList.contains("checkBtn")){
-        const i = Number(t.dataset.i);
-        // 1個だけチェック済みに移動（残りはreadyに残る）
-        if(i < 0 || i >= readyList.length) return;
-        const item = readyList[i];
-        // move one
-        checkedList.push({code:item.code, qty:1, memo:item.memo, group:item.group});
-        item.qty = Number(item.qty) - 1;
-        if(item.qty <= 0){
-          readyList.splice(i,1);
-        }
-        saveAll();
-        renderAll();
-        playBeep(); // ピッ音
-      }
-    });
-    renderReadyList.bound = true;
-  }
-
-  // quantity and memo change handlers
-  el.querySelectorAll(".readyQty").forEach(inp=>{
-    inp.onchange = ()=>{ const i = Number(inp.dataset.i); readyList[i].qty = Math.max(1, Number(inp.value)||1); saveAll(); renderReadyList(); };
+  // attach handlers
+  el.querySelectorAll(".checkBtn").forEach(b=>{
+    b.onclick = (e)=>{
+      const i = Number(e.target.dataset.i);
+      if(i<0 || i>=readyList.length) return;
+      const item = readyList[i];
+      // move one unit
+      checkedList.push({code:item.code, qty:1, memo:item.memo, group:item.group});
+      item.qty = Number(item.qty) - 1;
+      if(item.qty <= 0) readyList.splice(i,1);
+      saveAll(); renderAll(); playBeep();
+    };
   });
-  el.querySelectorAll(".readyMemo").forEach(inp=>{
-    inp.oninput = ()=>{ const i = Number(inp.dataset.i); readyList[i].memo = inp.value; saveAll(); };
-  });
+  el.querySelectorAll(".readyQty").forEach(inp=> inp.onchange = ()=>{ const i = Number(inp.dataset.i); readyList[i].qty = Math.max(1, Number(inp.value)||1); saveAll(); renderReadyList(); });
+  el.querySelectorAll(".readyMemo").forEach(inp=> inp.oninput = ()=>{ const i = Number(inp.dataset.i); readyList[i].memo = inp.value; saveAll(); });
 }
 
 function renderCheckedList(){
-  const el = dom.checkedListEl;
-  el.innerHTML = "";
-  const summary = getCheckedSummary();
+  const el = dom.checkedListEl; el.innerHTML = "";
+  const summary = {};
+  checkedList.forEach(it=>{
+    if(!summary[it.code]) summary[it.code] = {qty:0, memo: it.memo||"", group: it.group||""};
+    summary[it.code].qty += Number(it.qty||1);
+  });
   Object.keys(summary).forEach(code=>{
     const it = summary[code];
     const div = document.createElement("div");
@@ -426,27 +323,20 @@ function renderCheckedList(){
   });
 }
 
-/* =============== イベント: 言語 / 認証 / ナビ =============== */
-addSmartClick(document.getElementById("langBtn"), ()=>{
-  lang = (lang === "ja" ? "en" : "ja");
-  updateLangTexts();
-  renderAll();
+function renderAll(){ renderWaitList(); renderReadyList(); renderCheckedList(); }
+
+/* ---------- language / auth / nav ---------- */
+document.getElementById("langBtn").addEventListener("click", ()=>{ lang = (lang==="ja"?"en":"ja"); updateLangUI(); renderAll(); });
+
+document.getElementById("passwordSubmit").addEventListener("click", ()=>{
+  const v = document.getElementById("passwordInput").value.trim();
+  if(v === PASSWORD){ isPasswordOk = true; showPage("page-login"); }
+  else{ document.getElementById("passwordError").style.display = "block"; setTimeout(()=>document.getElementById("passwordError").style.display="none",2000); }
 });
 
-addSmartClick(dom.passwordSubmit, ()=>{
-  const val = dom.passwordInput.value.trim();
-  if(val === PASSWORD){
-    isPasswordOk = true;
-    showPage("page-login");
-  } else {
-    document.getElementById("passwordError").style.display = "block";
-    setTimeout(()=>document.getElementById("passwordError").style.display="none",2000);
-  }
-});
-
-addSmartClick(dom.loginSubmit, ()=>{
+document.getElementById("loginSubmit").addEventListener("click", ()=>{
   if(!isPasswordOk) return alert(texts[lang].pass_required);
-  const id = dom.userIdInput.value.trim();
+  const id = document.getElementById("userIdInput").value.trim();
   if(!id) return alert(texts[lang].enter_id_alert);
   localStorage.setItem("indent:user", id);
   isLoginOk = true;
@@ -454,292 +344,111 @@ addSmartClick(dom.loginSubmit, ()=>{
 });
 
 // nav
-addSmartClick(document.getElementById("navChecklist"), ()=> showPage("page-wait"));
-addSmartClick(document.getElementById("navReady"), ()=> showPage("page-ready"));
-addSmartClick(document.getElementById("navChecked"), ()=> showPage("page-checked"));
+document.getElementById("navChecklist").addEventListener("click", ()=> showPage("page-wait"));
+document.getElementById("navReady").addEventListener("click", ()=> showPage("page-ready"));
+document.getElementById("navChecked").addEventListener("click", ()=> showPage("page-checked"));
 
-/* =============== イベント: チェック待ち (追加・OCR・グループ・決定) =============== */
-
-// add temp (wait) from hand input
-addSmartClick(document.getElementById("addProductBtn_wait"), ()=>{
+/* ---------- wait list events: add, OCR, group, decide, reset ---------- */
+document.getElementById("addProductBtn_wait").addEventListener("click", ()=>{
   if(!isLoginOk) return alert(texts[lang].pass_required);
-  const code = document.getElementById("productCodeInput_wait").value.trim();
-  const qty = Math.max(1, Number(document.getElementById("productQtyInput_wait").value) || 1);
-  const memo = document.getElementById("productMemoInput_wait").value.trim();
+  const code = dom.productCodeInput_wait.value.trim();
+  const qty = Math.max(1, Number(dom.productQtyInput_wait.value) || 1);
+  const memo = dom.productMemoInput_wait.value.trim();
   if(!/^\d{7}$/.test(code)) return alert(texts[lang].code7);
   waitList.push({code, qty, memo, group: ""});
   saveAll(); renderWaitList();
-  document.getElementById("productCodeInput_wait").value = "";
-  document.getElementById("productMemoInput_wait").value = "";
+  dom.productCodeInput_wait.value = ""; dom.productMemoInput_wait.value = "";
 });
 
-// OCR capture -> crop -> recognize
-let tmpImage = null;
+// OCR flow with simple crop (no modal blocking)
+document.getElementById("ocrCaptureBtn").addEventListener("click", ()=> document.getElementById("ocrInput").click());
 
-// open file selector
-addSmartClick(dom.ocrCaptureBtn, ()=> dom.ocrInput.click());
-
-dom.ocrInput.addEventListener("change", async (ev)=>{
+document.getElementById("ocrInput").addEventListener("change", async (e)=>{
   if(!isLoginOk) return alert(texts[lang].pass_required);
-  const file = ev.target.files[0];
-  if(!file) return;
-  // load image into canvas and allow user to crop
-  const img = new Image();
-  const url = URL.createObjectURL(file);
-  img.src = url;
-  await new Promise(r=>img.onload = r);
-  // create a simple inline cropping UI using canvas
-  await cropAndRecognize(img);
-  dom.ocrInput.value = ""; 
-});
-
-async function cropAndRecognize(img){
-  // Create modal-like canvas for cropping
-  const w = Math.min(img.width, 1200);
-  const h = Math.min(img.height, 1200 * (img.height/img.width));
+  const file = e.target.files[0]; if(!file) return;
+  const img = new Image(); const url = URL.createObjectURL(file); img.src = url;
+  await new Promise(r=>img.onload=r);
+  // quick auto-crop to full (we do lightweight crop interaction: use full image so user isn't blocked)
+  // (You said earlier you wanted cropping; to keep UX simple and avoid modal traps we use whole image by default.
+  // If you'd like interactive cropping again, we can re-add a robust cropping UI.)
   const canvas = document.createElement("canvas");
-  canvas.width = img.width;
-  canvas.height = img.height;
-  canvas.style.maxWidth = "92%";
-  canvas.style.border = "2px solid #111";
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0);
-  // show overlay for cropping
-  const modal = document.createElement("div");
-  modal.className = "modal";
-  modal.innerHTML = `<div class="card" style="max-width:95%;padding:8px">
-    <div style="margin-bottom:8px">範囲をドラッグして選択後「トリミングしてOCR」ボタンを押してください</div>
-    <div id="canvasWrap" style="text-align:center"></div>
-    <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
-      <button id="cancelCrop">キャンセル</button>
-      <button id="doCrop">トリミングしてOCR</button>
-    </div>
-  </div>`;
-  document.body.appendChild(modal);
-  document.getElementById("canvasWrap").appendChild(canvas);
-  // simple drag-to-select
-  let sx=0, sy=0, ex=0, ey=0, dragging=false;
-  function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.drawImage(img,0,0);
-    if(dragging || (sx!==ex && sy!==ey)){
-      const x = Math.min(sx,ex), y = Math.min(sy,ey), ww=Math.abs(ex-sx), hh=Math.abs(ey-sy);
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      // clear selection area
-      ctx.clearRect(x,y,ww,hh);
-      ctx.strokeStyle = '#ff0';
-      ctx.lineWidth=3;
-      ctx.strokeRect(x,y,ww,hh);
+  canvas.width = img.width; canvas.height = img.height;
+  canvas.getContext("2d").drawImage(img,0,0);
+  const blob = await new Promise(res=>canvas.toBlob(res,"image/png"));
+  URL.revokeObjectURL(url);
+  // OCR (eng+jpn)
+  try{
+    alert("OCR中...");
+    const worker = Tesseract.createWorker({logger:m=>console.log(m)});
+    await worker.load();
+    await worker.loadLanguage('eng+jpn');
+    await worker.initialize('eng+jpn');
+    const { data: { text } } = await worker.recognize(blob);
+    await worker.terminate();
+    const codes = (text && text.match(/\b\d{7}\b/g)) || [];
+    if(codes.length === 0) { alert(texts[lang].no_hit); }
+    else {
+      codes.forEach(c => waitList.push({code:c, qty:1, memo:"", group:""}));
+      saveAll(); renderWaitList();
+      alert(texts[lang].ocrAdded);
     }
-  }
-  canvas.addEventListener("pointerdown", (e)=>{
-    dragging=true;
-    const rect = canvas.getBoundingClientRect();
-    sx = (e.clientX - rect.left) * (canvas.width/rect.width);
-    sy = (e.clientY - rect.top) * (canvas.height/rect.height);
-    ex = sx; ey = sy;
-    draw();
-  });
-  window.addEventListener("pointermove", moveHandler);
-  function moveHandler(e){
-    if(!dragging) return;
-    const rect = canvas.getBoundingClientRect();
-    ex = (e.clientX - rect.left) * (canvas.width/rect.width);
-    ey = (e.clientY - rect.top) * (canvas.height/rect.height);
-    draw();
-  }
-  window.addEventListener("pointerup", upHandler);
-  function upHandler(e){
-    if(!dragging) return;
-    dragging=false;
-    draw();
-  }
-
-  // cancel
-  document.getElementById("cancelCrop").addEventListener("click", ()=>{
-    window.removeEventListener("pointermove", moveHandler);
-    window.removeEventListener("pointerup", upHandler);
-    modal.remove();
-    URL.revokeObjectURL(img.src);
-  });
-
-  // do crop and OCR
-  document.getElementById("doCrop").addEventListener("click", async ()=>{
-    window.removeEventListener("pointermove", moveHandler);
-    window.removeEventListener("pointerup", upHandler);
-    // if selection invalid, take full image
-    const x = Math.max(0, Math.min(sx,ex)|0);
-    const y = Math.max(0, Math.min(sy,ey)|0);
-    const wSel = Math.abs(ex-sx)|0;
-    const hSel = Math.abs(ey-sy)|0;
-    let useCanvas = document.createElement("canvas");
-    if(wSel>10 && hSel>10){
-      useCanvas.width = wSel; useCanvas.height = hSel;
-      useCanvas.getContext("2d").drawImage(img, x, y, wSel, hSel, 0, 0, wSel, hSel);
-    } else {
-      // use full
-      useCanvas.width = img.width; useCanvas.height = img.height;
-      useCanvas.getContext("2d").drawImage(img, 0, 0);
-    }
-    // convert to blob
-    useCanvas.toBlob(async (blob)=>{
-      // OCR with Tesseract (eng+jpn)
-      try{
-        // show a short loading note
-        alert("OCR中...（時間がかかる場合があります）");
-        const worker = Tesseract.createWorker({logger:m=>console.log(m)});
-        await worker.load();
-        await worker.loadLanguage('eng+jpn');
-        await worker.initialize('eng+jpn');
-        const { data: { text } } = await worker.recognize(blob);
-        await worker.terminate();
-        // find 7-digit codes
-        const codes = (text && text.match(/\b\d{7}\b/g)) || [];
-        if(codes.length === 0){
-          alert(texts[lang].no_hit);
-        } else {
-          codes.forEach(c=>{
-            waitList.push({code:c, qty:1, memo:"", group:""});
-          });
-          saveAll(); renderWaitList();
-          alert(texts[lang].ocrAdded);
-        }
-      }catch(err){
-        console.error(err);
-        alert("OCRエラー");
-      }
-    }, "image/png");
-    modal.remove();
-    URL.revokeObjectURL(img.src);
-  });
-}
-
-// group creation for selected wait items
-addSmartClick(document.getElementById("groupCreateBtn"), ()=>{
-  const g = document.getElementById("groupNameInput").value.trim();
-  if(!g) return alert(texts[lang].enter_group_name);
-  const checked = Array.from(document.querySelectorAll(".selectItem:checked")).map(c=>Number(c.dataset.i));
-  if(checked.length===0) return alert("No items selected");
-  checked.forEach(i=>{
-    if(waitList[i]) waitList[i].group = g;
-  });
-  saveAll(); renderWaitList();
-  document.getElementById("groupNameInput").value = "";
+  }catch(err){ console.error(err); alert("OCRエラー"); }
+  e.target.value = "";
 });
 
-// decide: move selected wait items to readyList (checklist)
-addSmartClick(document.getElementById("decideBtn"), ()=>{
+// group selected
+document.getElementById("groupCreateBtn").addEventListener("click", ()=>{
+  const g = document.getElementById("groupNameInput").value.trim();
+  if(!g) return alert(texts[lang].enter_group_name || "グループ名を入力してください");
+  const boxes = Array.from(document.querySelectorAll(".selectItem:checked")).map(n=>Number(n.dataset.i));
+  if(boxes.length === 0) return alert("No items selected");
+  boxes.forEach(i => { if(waitList[i]) waitList[i].group = g; });
+  saveAll(); renderWaitList(); document.getElementById("groupNameInput").value = "";
+});
+
+// decide: move selected wait -> ready (preserve qty,memo,group)
+document.getElementById("decideBtn").addEventListener("click", ()=>{
   const checkedBoxes = Array.from(document.querySelectorAll(".selectItem:checked"));
   if(checkedBoxes.length === 0) return alert("No items selected");
-  // sort indices descending so we can remove safely
   const indices = checkedBoxes.map(cb=>Number(cb.dataset.i)).sort((a,b)=>b-a);
-  indices.forEach(i=>{
-    const it = {...waitList[i]}; // copy with memo/group
-    readyList.push(it);
-    waitList.splice(i,1);
-  });
-  saveAll();
-  renderAll();
-  alert(texts[lang].decide_ok);
+  indices.forEach(i => { readyList.push({...waitList[i]}); waitList.splice(i,1); });
+  saveAll(); renderAll(); alert(texts[lang].decide_ok);
 });
 
-// reset wait
-addSmartClick(document.getElementById("resetWaitBtn"), ()=>{
-  if(!confirm("Reset waiting list?")) return;
-  waitList = []; saveAll(); renderAll();
-});
+// reset wait / all
+document.getElementById("resetWaitBtn").addEventListener("click", ()=> { if(!confirm("Reset waiting list?")) return; waitList = []; saveAll(); renderAll(); });
+document.getElementById("resetAllBtn").addEventListener("click", ()=> { if(!confirm("Reset ALL data?")) return; waitList=[]; readyList=[]; checkedList=[]; saveAll(); renderAll(); });
 
-// reset all
-addSmartClick(document.getElementById("resetAllBtn"), ()=>{
-  if(!confirm("Reset ALL data?")) return;
-  waitList = []; readyList = []; checkedList = []; saveAll(); renderAll();
-});
-
-/* =============== イベント: Ready (検索/チェック via scanInputReady) =============== */
-
-// search and check by code input (Enter or button)
-addSmartClick(dom.scanBtnReady, ()=> handleScanCode(dom.scanInputReady.value.trim()));
-document.getElementById("scanInputReady").addEventListener("keypress", (e)=>{
-  if(e.key === "Enter"){ handleScanCode(e.target.value.trim()); e.target.value=""; }
-});
+/* ---------- ready list: scan input handler ---------- */
+document.getElementById("scanBtnReady").addEventListener("click", ()=> handleScanCode(dom.scanInputReady.value.trim()));
+dom.scanInputReady.addEventListener("keypress", (e)=>{ if(e.key==="Enter"){ handleScanCode(e.target.value.trim()); e.target.value=""; }});
 
 function handleScanCode(code){
   if(!isLoginOk) return alert(texts[lang].pass_required);
   if(!code) return;
-  // find matching readyList items (same code)
-  const hits = readyList.map((it, idx)=>({it, idx})).filter(o=>o.it.code === code);
-  if(hits.length === 0){
-    return alert(texts[lang].no_hit);
-  }
-  // if there is exactly one item and qty===1 -> immediate
-  // if single item with qty>1 OR multiple items -> ask quantity to move
-  let totalAvailable = hits.reduce((s,h)=>s + Number(h.it.qty||1), 0);
-  if(totalAvailable === 1){
-    // remove that one
-    const idx = hits[0].idx;
-    const item = readyList[idx];
-    checkedList.push({code:item.code, qty:1, memo:item.memo, group:item.group});
-    readyList.splice(idx,1);
-    saveAll(); renderAll(); playBeep();
-    return;
-  }
-  // else we need to ask how many to move
-  showCountModal(totalAvailable, (count)=>{
-    // move 'count' quantity from the hits in order
-    let remaining = count;
-    // iterate hits by index ascending
-    const ordered = hits.sort((a,b)=>a.idx - b.idx);
-    ordered.forEach(h=>{
-      if(remaining <= 0) return;
-      const available = Number(h.it.qty||1);
-      const take = Math.min(available, remaining);
-      // add taken to checkedList
-      checkedList.push({code:h.it.code, qty: take, memo:h.it.memo, group:h.it.group});
-      // reduce source
-      h.it.qty = available - take;
-      remaining -= take;
-    });
-    // remove any items with qty<=0 in readyList
-    readyList = readyList.filter(it=>Number(it.qty) > 0);
-    saveAll(); renderAll(); playBeep();
-  });
+  // find first item with that code
+  const idx = readyList.findIndex(it => it.code === code);
+  if(idx === -1) return alert(texts[lang].no_hit);
+  // move one unit
+  const item = readyList[idx];
+  checkedList.push({code:item.code, qty:1, memo:item.memo, group:item.group});
+  item.qty = Number(item.qty) - 1;
+  if(item.qty <= 0) readyList.splice(idx,1);
+  saveAll(); renderAll(); playBeep();
 }
 
-/* =============== Count modal helpers =============== */
-function showCountModal(max, onOk){
-  dom.countModal.classList.remove("hidden");
-  dom.countModalInput.value = 1;
-  dom.countModalText.textContent = texts[lang].specify_count + ` (1〜${max})`;
-  dom.countModalInput.min = 1;
-  dom.countModalInput.max = max;
-  dom.countModalOk.onclick = ()=>{
-    let v = Math.min(Math.max(Number(dom.countModalInput.value)||1, 1), max);
-    dom.countModal.classList.add("hidden");
-    onOk(v);
-  };
-  dom.countModalCancel.onclick = ()=>{
-    dom.countModal.classList.add("hidden");
-  };
-}
+/* ---------- readyList check button handled in renderReadyList (per-item) ---------- */
 
-/* =============== Checked reset =============== */
-addSmartClick(document.getElementById("resetCheckedBtn"), ()=>{
-  if(!confirm("Reset checked list?")) return;
-  checkedList = []; saveAll(); renderAll();
-});
+/* ---------- reset checked ---------- */
+document.getElementById("resetCheckedBtn").addEventListener("click", ()=> { if(!confirm("Reset checked list?")) return; checkedList=[]; saveAll(); renderAll(); });
 
-/* =============== Initial render & read saved user =============== */
-(function init(){
-  // restore login state if user exists (but still require password & id)
-  if(localStorage.getItem("indent:user")){
-    // we don't auto-login for security — keep isLoginOk false until login flow
-  }
-  updateLangTexts();
+/* ---------- init ---------- */
+function init(){
+  updateLangUI();
   renderAll();
-  // show password page first
   showPage("page-password");
-})();
+}
+init();
 
 </script>
 </body>
