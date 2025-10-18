@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Indent — チェックリスト</title>
+<title>Indent — チェックリスト（OCR安定化版）</title>
 <style>
   :root{--bg:#fff;--fg:#000}
   body{font-family:"Noto Sans JP",system-ui,Arial;margin:0;background:var(--bg);color:var(--fg);-webkit-tap-highlight-color:transparent}
@@ -16,10 +16,10 @@
   .hidden{display:none}
   nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#000}
   nav button{flex:1;padding:12px;border:none;color:#fff;background:#000}
-  .list-item{border:1px solid #111;padding:8px;margin-bottom:8px;border-radius:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .code{font-weight:600;min-width:90px}
+  .list-item{border:1px solid #111;padding:8px;margin-bottom:8px;border-radius:8px;display:flex;gap:8px;align-items:center;flex-wrap:nowrap}
+  .code{font-weight:600;min-width:110px}
+  .memoSmall{font-size:14px;width:180px;padding:6px}
   .small{font-size:13px;padding:6px}
-  .modal{display:none}
 </style>
 <!-- Tesseract.js -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -55,7 +55,7 @@
     <div class="row" style="margin-bottom:8px">
       <input id="productCodeInput_wait" placeholder="7桁のコード (手入力/バーコード)" />
       <input id="productQtyInput_wait" type="number" min="1" value="1" style="width:90px" />
-      <input id="productMemoInput_wait" placeholder="メモ（1行）" style="flex:1" />
+      <input id="productMemoInput_wait" placeholder="メモ（1行）" style="width:180px" />
       <button id="addProductBtn_wait">追加（一時）</button>
     </div>
 
@@ -105,7 +105,7 @@
 </nav>
 
 <script>
-/* ---------- settings & data ---------- */
+/* ================== 設定・データ ================== */
 const PASSWORD = "0509";
 let lang = "ja";
 let isPasswordOk = false;
@@ -121,7 +121,7 @@ function saveAll(){
   localStorage.setItem("indent:checkedList", JSON.stringify(checkedList));
 }
 
-/* ---------- localization ---------- */
+/* ================== 文言 ================== */
 const texts = {
   ja: {
     waitTitle: "チェック待ちリスト",
@@ -141,6 +141,8 @@ const texts = {
     code7: "7桁のコードを入力してください",
     copied: "コピーしました",
     ocrAdded: "OCRで追加しました",
+    ocrError: "OCRに失敗しました（ネットワーク/メモリ問題の可能性）",
+    ocrRetry: "OCRを言語少なくして再試行します...",
     no_hit: "該当なし",
     decide_ok: "チェックリストに移しました",
     memo_placeholder: "メモ（1行）",
@@ -164,6 +166,8 @@ const texts = {
     code7: "Please enter 7 digits code",
     copied: "Copied",
     ocrAdded: "Added via OCR",
+    ocrError: "OCR failed (possible memory/network issue)",
+    ocrRetry: "Retrying OCR with fewer languages...",
     no_hit: "No match",
     decide_ok: "Moved to checklist",
     memo_placeholder: "Memo (1 line)",
@@ -171,7 +175,7 @@ const texts = {
   }
 };
 
-/* ---------- beep (barcode-like) ---------- */
+/* ================== ピッ音 ================== */
 let audioCtx;
 function playBeep(){
   try{
@@ -185,10 +189,10 @@ function playBeep(){
     g.connect(audioCtx.destination);
     o.start();
     setTimeout(()=>o.stop(), 80);
-  }catch(e){ console.warn("Audio error", e); }
+  }catch(e){ console.warn("Audio err", e); }
 }
 
-/* ---------- dom references ---------- */
+/* ================== DOM refs ================== */
 const dom = {
   title: document.getElementById("title"),
   pagePassword: document.getElementById("page-password"),
@@ -217,7 +221,7 @@ const dom = {
   toCheckedPage: document.getElementById("toCheckedPage")
 };
 
-/* ---------- helpers ---------- */
+/* ================== UI 更新 ================== */
 function updateLangUI(){
   document.getElementById("waitTitle").textContent = texts[lang].waitTitle;
   document.getElementById("readyTitle").textContent = texts[lang].readyTitle;
@@ -241,12 +245,8 @@ function showPage(id){
       return;
     }
   }
-  // hide all
-  ["page-password","page-login","page-wait","page-ready","page-checked"].forEach(pid=>{
-    document.getElementById(pid).classList.add("hidden");
-  });
+  ["page-password","page-login","page-wait","page-ready","page-checked"].forEach(pid=>document.getElementById(pid).classList.add("hidden"));
   document.getElementById(id).classList.remove("hidden");
-  // title
   if(id === "page-wait") dom.title.textContent = texts[lang].waitTitle;
   if(id === "page-ready") dom.title.textContent = texts[lang].readyTitle;
   if(id === "page-checked") dom.title.textContent = texts[lang].checkedTitle;
@@ -255,26 +255,25 @@ function showPage(id){
   updateLangUI(); renderAll();
 }
 
-/* ---------- rendering ---------- */
 function renderWaitList(){
   const el = dom.waitListEl; el.innerHTML = "";
-  waitList.forEach((it, i)=>{
+  waitList.forEach((it,i)=>{
     const div = document.createElement("div");
     div.className = "list-item";
     div.innerHTML = `
       <input type="checkbox" class="selectItem" data-i="${i}" />
       <div class="code">${it.code}</div>
+      <input class="memoSmall" data-i="${i}" value="${it.memo||''}" placeholder="${texts[lang].memo_placeholder}" />
       <input class="small qtyWait" data-i="${i}" value="${it.qty||1}" type="number" min="1" style="width:80px" />
-      <input class="memoInput" data-i="${i}" value="${it.memo||''}" placeholder="${texts[lang].memo_placeholder}" style="flex:1" />
       <div style="min-width:120px">${it.group?('['+it.group+']'):""}</div>
       <button class="copyBtn small" data-code="${it.code}">コピー</button>
     `;
     el.appendChild(div);
   });
-  // event delegations
-  el.querySelectorAll(".copyBtn").forEach(b=>b.onclick = (e)=>{ navigator.clipboard.writeText(e.target.dataset.code); alert(texts[lang].copied); });
-  el.querySelectorAll(".qtyWait").forEach(inp=> inp.onchange = ()=>{ const i = Number(inp.dataset.i); waitList[i].qty = Math.max(1, Number(inp.value)||1); saveAll(); });
-  el.querySelectorAll(".memoInput").forEach(inp=> inp.oninput = ()=>{ const i = Number(inp.dataset.i); waitList[i].memo = inp.value; saveAll(); });
+  // handlers
+  el.querySelectorAll(".copyBtn").forEach(b=> b.onclick = (e)=>{ navigator.clipboard.writeText(e.target.dataset.code); alert(texts[lang].copied); });
+  el.querySelectorAll(".qtyWait").forEach(inp=> inp.onchange = ()=>{ const idx = Number(inp.dataset.i); waitList[idx].qty = Math.max(1, Number(inp.value)||1); saveAll(); });
+  el.querySelectorAll(".memoSmall").forEach(inp=> inp.oninput = ()=>{ const idx = Number(inp.dataset.i); waitList[idx].memo = inp.value; saveAll(); });
 }
 
 function renderReadyList(){
@@ -285,7 +284,7 @@ function renderReadyList(){
     div.innerHTML = `
       <div class="code">${it.code} ${it.group?('['+it.group+']'):""}</div>
       <input class="small readyQty" data-i="${i}" value="${it.qty||1}" type="number" min="1" style="width:80px" />
-      <input class="memoInput readyMemo" data-i="${i}" value="${it.memo||''}" placeholder="${texts[lang].memo_placeholder}" style="flex:1" />
+      <input class="memoSmall readyMemo" data-i="${i}" value="${it.memo||''}" placeholder="${texts[lang].memo_placeholder}" />
       <button class="checkBtn small" data-i="${i}">✔</button>
     `;
     el.appendChild(div);
@@ -296,7 +295,6 @@ function renderReadyList(){
       const i = Number(e.target.dataset.i);
       if(i<0 || i>=readyList.length) return;
       const item = readyList[i];
-      // move one unit
       checkedList.push({code:item.code, qty:1, memo:item.memo, group:item.group});
       item.qty = Number(item.qty) - 1;
       if(item.qty <= 0) readyList.splice(i,1);
@@ -325,30 +323,29 @@ function renderCheckedList(){
 
 function renderAll(){ renderWaitList(); renderReadyList(); renderCheckedList(); }
 
-/* ---------- language / auth / nav ---------- */
-document.getElementById("langBtn").addEventListener("click", ()=>{ lang = (lang==="ja"?"en":"ja"); updateLangUI(); renderAll(); });
+/* ================== 言語切替・認証・ナビ ================== */
+document.getElementById("langBtn").addEventListener("click", ()=>{ lang = (lang==="ja" ? "en" : "ja"); updateLangUI(); renderAll(); });
 
 document.getElementById("passwordSubmit").addEventListener("click", ()=>{
-  const v = document.getElementById("passwordInput").value.trim();
+  const v = dom.passwordInput.value.trim();
   if(v === PASSWORD){ isPasswordOk = true; showPage("page-login"); }
   else{ document.getElementById("passwordError").style.display = "block"; setTimeout(()=>document.getElementById("passwordError").style.display="none",2000); }
 });
 
 document.getElementById("loginSubmit").addEventListener("click", ()=>{
   if(!isPasswordOk) return alert(texts[lang].pass_required);
-  const id = document.getElementById("userIdInput").value.trim();
+  const id = dom.userIdInput.value.trim();
   if(!id) return alert(texts[lang].enter_id_alert);
   localStorage.setItem("indent:user", id);
   isLoginOk = true;
   showPage("page-wait");
 });
 
-// nav
 document.getElementById("navChecklist").addEventListener("click", ()=> showPage("page-wait"));
 document.getElementById("navReady").addEventListener("click", ()=> showPage("page-ready"));
 document.getElementById("navChecked").addEventListener("click", ()=> showPage("page-checked"));
 
-/* ---------- wait list events: add, OCR, group, decide, reset ---------- */
+/* ================== チェック待ち操作: 追加・OCR・グループ化・決定 ================== */
 document.getElementById("addProductBtn_wait").addEventListener("click", ()=>{
   if(!isLoginOk) return alert(texts[lang].pass_required);
   const code = dom.productCodeInput_wait.value.trim();
@@ -360,43 +357,123 @@ document.getElementById("addProductBtn_wait").addEventListener("click", ()=>{
   dom.productCodeInput_wait.value = ""; dom.productMemoInput_wait.value = "";
 });
 
-// OCR flow with simple crop (no modal blocking)
+/* ========== OCR: worker を使い回す（安定化） ========== */
+let tesseractWorker = null;
+let ocrInProgress = false;
+
+// create or get worker
+async function getWorker(){
+  if(tesseractWorker) return tesseractWorker;
+  tesseractWorker = Tesseract.createWorker({
+    logger: m => console.log("Tesseract:", m)
+  });
+  try{
+    await tesseractWorker.load();
+    // try to load both languages; may fail on low-memory devices — we'll handle fallback
+    await tesseractWorker.loadLanguage('eng+jpn');
+    await tesseractWorker.initialize('eng+jpn');
+  }catch(err){
+    console.warn("eng+jpn load failed:", err);
+    try{
+      // fallback: load only english
+      await tesseractWorker.loadLanguage('eng');
+      await tesseractWorker.initialize('eng');
+    }catch(err2){
+      console.error("Fallback OCR init failed:", err2);
+      throw err2;
+    }
+  }
+  return tesseractWorker;
+}
+
+// OCR button -> file input
 document.getElementById("ocrCaptureBtn").addEventListener("click", ()=> document.getElementById("ocrInput").click());
 
 document.getElementById("ocrInput").addEventListener("change", async (e)=>{
   if(!isLoginOk) return alert(texts[lang].pass_required);
-  const file = e.target.files[0]; if(!file) return;
-  const img = new Image(); const url = URL.createObjectURL(file); img.src = url;
-  await new Promise(r=>img.onload=r);
-  // quick auto-crop to full (we do lightweight crop interaction: use full image so user isn't blocked)
-  // (You said earlier you wanted cropping; to keep UX simple and avoid modal traps we use whole image by default.
-  // If you'd like interactive cropping again, we can re-add a robust cropping UI.)
-  const canvas = document.createElement("canvas");
-  canvas.width = img.width; canvas.height = img.height;
-  canvas.getContext("2d").drawImage(img,0,0);
-  const blob = await new Promise(res=>canvas.toBlob(res,"image/png"));
-  URL.revokeObjectURL(url);
-  // OCR (eng+jpn)
-  try{
-    alert("OCR中...");
-    const worker = Tesseract.createWorker({logger:m=>console.log(m)});
-    await worker.load();
-    await worker.loadLanguage('eng+jpn');
-    await worker.initialize('eng+jpn');
-    const { data: { text } } = await worker.recognize(blob);
-    await worker.terminate();
-    const codes = (text && text.match(/\b\d{7}\b/g)) || [];
-    if(codes.length === 0) { alert(texts[lang].no_hit); }
-    else {
-      codes.forEach(c => waitList.push({code:c, qty:1, memo:"", group:""}));
-      saveAll(); renderWaitList();
-      alert(texts[lang].ocrAdded);
-    }
-  }catch(err){ console.error(err); alert("OCRエラー"); }
+  const file = e.target.files[0];
   e.target.value = "";
+  if(!file) return;
+  if(ocrInProgress) return alert("OCR is busy, please wait");
+  ocrInProgress = true;
+  try{
+    // load image and draw into canvas (full image to avoid crop modal issues)
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.src = url;
+    await new Promise(r=> img.onload = r);
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width; canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    // small downscale to reduce memory if very large
+    const MAX_PIX = 1600;
+    let outCanvas = canvas;
+    if(Math.max(canvas.width, canvas.height) > MAX_PIX){
+      const scale = MAX_PIX / Math.max(canvas.width, canvas.height);
+      const c2 = document.createElement("canvas");
+      c2.width = Math.round(canvas.width * scale);
+      c2.height = Math.round(canvas.height * scale);
+      c2.getContext("2d").drawImage(canvas, 0, 0, c2.width, c2.height);
+      outCanvas = c2;
+    }
+    // blob
+    const blob = await new Promise(res=> outCanvas.toBlob(res, "image/png"));
+    URL.revokeObjectURL(url);
+
+    // OCR: try worker (eng+jpn preferred, fallback to eng)
+    try{
+      // show progress note
+      alert("OCR中...（少し時間がかかります）");
+      const worker = await getWorker();
+      const res = await worker.recognize(blob);
+      const text = res?.data?.text || "";
+      const codes = (text.match(/\b\d{7}\b/g)) || [];
+      if(codes.length === 0){
+        alert(texts[lang].no_hit);
+      } else {
+        codes.forEach(c => waitList.push({code:c, qty:1, memo:"", group:""}));
+        saveAll(); renderWaitList();
+        alert(texts[lang].ocrAdded);
+      }
+    }catch(ocrErr){
+      console.warn("OCR primary error:", ocrErr);
+      // try fallback: re-init worker with eng only if eng+jpn failed earlier
+      try{
+        alert(texts[lang].ocrRetry);
+        if(tesseractWorker){
+          await tesseractWorker.terminate();
+          tesseractWorker = null;
+        }
+        const w2 = Tesseract.createWorker({logger: m => console.log("Tesseract fallback:", m)});
+        await w2.load();
+        await w2.loadLanguage('eng');
+        await w2.initialize('eng');
+        const res2 = await w2.recognize(blob);
+        await w2.terminate();
+        const text2 = res2?.data?.text || "";
+        const codes2 = (text2.match(/\b\d{7}\b/g)) || [];
+        if(codes2.length === 0){
+          alert(texts[lang].no_hit);
+        } else {
+          codes2.forEach(c => waitList.push({code:c, qty:1, memo:"", group:""}));
+          saveAll(); renderWaitList();
+          alert(texts[lang].ocrAdded);
+        }
+      }catch(finalErr){
+        console.error("OCR fallback failed:", finalErr);
+        alert(texts[lang].ocrError);
+      }
+    }
+  }catch(err){
+    console.error("OCR outer error:", err);
+    alert(texts[lang].ocrError);
+  }finally{
+    ocrInProgress = false;
+  }
 });
 
-// group selected
+/* ========== group & decide ========== */
 document.getElementById("groupCreateBtn").addEventListener("click", ()=>{
   const g = document.getElementById("groupNameInput").value.trim();
   if(!g) return alert(texts[lang].enter_group_name || "グループ名を入力してください");
@@ -406,7 +483,6 @@ document.getElementById("groupCreateBtn").addEventListener("click", ()=>{
   saveAll(); renderWaitList(); document.getElementById("groupNameInput").value = "";
 });
 
-// decide: move selected wait -> ready (preserve qty,memo,group)
 document.getElementById("decideBtn").addEventListener("click", ()=>{
   const checkedBoxes = Array.from(document.querySelectorAll(".selectItem:checked"));
   if(checkedBoxes.length === 0) return alert("No items selected");
@@ -415,34 +491,29 @@ document.getElementById("decideBtn").addEventListener("click", ()=>{
   saveAll(); renderAll(); alert(texts[lang].decide_ok);
 });
 
-// reset wait / all
+/* ========== reset handlers ========== */
 document.getElementById("resetWaitBtn").addEventListener("click", ()=> { if(!confirm("Reset waiting list?")) return; waitList = []; saveAll(); renderAll(); });
 document.getElementById("resetAllBtn").addEventListener("click", ()=> { if(!confirm("Reset ALL data?")) return; waitList=[]; readyList=[]; checkedList=[]; saveAll(); renderAll(); });
+document.getElementById("resetCheckedBtn").addEventListener("click", ()=> { if(!confirm("Reset checked list?")) return; checkedList=[]; saveAll(); renderAll(); });
 
-/* ---------- ready list: scan input handler ---------- */
+/* ========== ready list: check via input or button ========== */
 document.getElementById("scanBtnReady").addEventListener("click", ()=> handleScanCode(dom.scanInputReady.value.trim()));
-dom.scanInputReady.addEventListener("keypress", (e)=>{ if(e.key==="Enter"){ handleScanCode(e.target.value.trim()); e.target.value=""; }});
+dom.scanInputReady.addEventListener("keypress", (e)=>{ if(e.key === "Enter"){ handleScanCode(e.target.value.trim()); e.target.value=""; }});
 
 function handleScanCode(code){
   if(!isLoginOk) return alert(texts[lang].pass_required);
   if(!code) return;
-  // find first item with that code
   const idx = readyList.findIndex(it => it.code === code);
   if(idx === -1) return alert(texts[lang].no_hit);
-  // move one unit
   const item = readyList[idx];
+  // move one unit
   checkedList.push({code:item.code, qty:1, memo:item.memo, group:item.group});
   item.qty = Number(item.qty) - 1;
   if(item.qty <= 0) readyList.splice(idx,1);
   saveAll(); renderAll(); playBeep();
 }
 
-/* ---------- readyList check button handled in renderReadyList (per-item) ---------- */
-
-/* ---------- reset checked ---------- */
-document.getElementById("resetCheckedBtn").addEventListener("click", ()=> { if(!confirm("Reset checked list?")) return; checkedList=[]; saveAll(); renderAll(); });
-
-/* ---------- init ---------- */
+/* ========== initial render ========== */
 function init(){
   updateLangUI();
   renderAll();
