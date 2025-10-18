@@ -15,8 +15,9 @@
     nav button { flex: 1; border: none; border-right: 1px solid #fff; background: #000; color: #fff; padding: 10px; }
     nav button:last-child { border-right: none; }
     .hidden { display: none; }
-    .list-item { border: 1px solid #000; padding: 8px; margin-bottom: 6px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
-    .memo { font-size: 12px; margin-left: 8px; }
+    .list-item { border: 1px solid #000; padding: 8px; margin-bottom: 6px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .memo, .qty { font-size: 12px; margin-left: 4px; }
+    .small-input { width: 60px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 </head>
@@ -131,11 +132,17 @@
       precheckList.forEach((item,i)=>{
         const div=document.createElement('div');
         div.className='list-item';
-        div.innerHTML=`${item.code} ×${item.qty} <span class='memo'>${item.memo||''}</span> <button data-i='${i}' class='removeBtn'>削除</button>`;
+        div.innerHTML=`${item.code} <input type='number' class='small-input qty' data-i='${i}' value='${item.qty}' min='1'> <input type='text' class='small-input memo' data-i='${i}' value='${item.memo||''}' placeholder='メモ'> <button data-i='${i}' class='removeBtn'>削除</button>`;
         el.appendChild(div);
       });
       document.querySelectorAll('.removeBtn').forEach(btn=>btn.onclick=e=>{
         precheckList.splice(e.target.dataset.i,1); saveData(); renderPrecheck();
+      });
+      document.querySelectorAll('.qty').forEach(input=>input.onchange=e=>{
+        precheckList[e.target.dataset.i].qty=Number(e.target.value); saveData();
+      });
+      document.querySelectorAll('.memo').forEach(input=>input.onchange=e=>{
+        precheckList[e.target.dataset.i].memo=e.target.value; saveData();
       });
     }
 
@@ -177,7 +184,7 @@
       const memo=document.getElementById('productMemoInput').value.trim();
       if(!/^\d{7}$/.test(code)) return alert('7桁のコードを入力してください');
       precheckList.push({code,qty,memo}); saveData(); renderPrecheck();
-      document.getElementById('productCodeInput').value='';
+      document.getElementById('productCodeInput').value=''; document.getElementById('productMemoInput').value='';
     };
 
     // OCR Button
